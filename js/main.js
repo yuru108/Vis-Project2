@@ -54,3 +54,83 @@ svg
   .attr("font-size", 28)
   .attr("font-family", "'Noto Serif TC', 'Source Serif 4', serif")
   .text("D3 已就緒");
+
+// **This Needs To Be Moved To A Separate File**
+
+// Load 311 service requests, then normalize and filter records before mapping.
+// Reason: raw CSV fields can vary in naming/casing and may include invalid coordinates,
+// which can break or clutter the map. This step standardizes latitude/longitude and
+// the Leaflet layer renders accurate, focused points.
+
+d3.csv('data/Cincinnati311.csv')
+.then(data => {
+    console.log("number of items: " + data.length);
+
+    const allowedFields = [
+      'SR_TYPE',
+      'SR_TYPE_DESC',
+      'PRIORITY',
+      'DEPT_CODE',
+      'DEPT_NAME',
+      'DEPT_DIVISION',
+      'ADDRESS',
+      'LOCATION',
+      'NEIGHBORHOOD',
+      'ZIPCODE',
+      'METHOD_RECEIVED',
+      'DATE_CREATED',
+      'TIME_RECEIVED',
+      'DATE_CLOSED',
+      'DATE_STATUS_CHANGE',
+      'TIME_STATUS_CHANGE',
+      'DATE_LAST_UPDATE',
+      'TIME_LAST_UPDATE',
+      'PLANNED_RESPONSE_TIME',
+      'PLANNED_END_DATE',
+      'PLANNED_COMPLETION_DAYS',
+      'DATE_DISPATCHED',
+      'TIME_DISPATCHED',
+      'DATE_REVISED_COMPLETION',
+      'DATE_REVISED_COMPLETION_REASON',
+      'COLLECTION_SPECIAL_DATE',
+      'COLLECTION_DAY',
+      'COLLECTION_ROUTE',
+      'COLLECTION_DIST',
+      'PROPTY_CITY_OWNED_YN',
+      'PROPTY_CITY_DEPT_OWNER',
+      'STREET_NO',
+      'STREET_DIRECTION',
+      'STREET_NAME',
+      'REQUEST_RETURN_CALL',
+      'NUM_POTHOLES',
+      'POLICE_DISTRICT',
+      'POLICE_RPT_AREA',
+      'LATITUDE',
+      'LONGITUDE',
+      'DATE_TIME_RECEIVED',
+      'COMMUNITY_COUNCIL_NEIGHBORHOOD'
+    ];
+
+    const parsedData = data
+      .map(d => {
+        const row = {};
+        allowedFields.forEach(field => {
+          row[field] = d[field] ?? '';
+        });
+
+        row.LATITUDE = +(d.LATITUDE ?? d.latitude);
+        row.LONGITUDE = +(d.LONGITUDE ?? d.longitude);
+
+        return row;
+      })
+      .filter(d => Number.isFinite(d.LATITUDE) && Number.isFinite(d.LONGITUDE))
+      .filter(d => {
+        const srType = (d.SR_TYPE ?? '').toUpperCase();
+        const srTypeDesc = (d.SR_TYPE_DESC ?? '').toUpperCase();
+        return srType === 'PTHOLE' || srTypeDesc.includes('POTHOLE');
+      });
+
+    leafletMap = new LeafletMap({ parentElement: '#my-map'}, parsedData);
+
+  })
+  .catch(error => console.error(error));
