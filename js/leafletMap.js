@@ -45,8 +45,10 @@ class LeafletMap {
     });
 
     vis.theMap = L.map('my-map', {
-      center: [30, 0],
-      zoom: 2,
+      center: [39.1031, -84.5120],
+      zoom: 12,
+      minZoom: 10,
+      maxZoom: 18,
       layers: [vis.base_layer]
     });
 
@@ -55,11 +57,13 @@ class LeafletMap {
     //initialize svg for d3 to add to map
     L.svg({clickable:true}).addTo(vis.theMap)// we have to make the svg layer clickable
     vis.overlay = d3.select(vis.theMap.getPanes().overlayPane)
-    vis.svg = vis.overlay.select('svg').attr("pointer-events", "auto")    
-
+    vis.svg = vis.overlay.select('svg').attr("pointer-events", "auto")
+    vis.missingGPS = vis.data.filter(d => !d.LATITUDE || !d.LONGITUDE).length; //Count missing GPS coordinates
+    d3.select("#missing-data")
+      .text(`${vis.missingGPS} requests could not be mapped because they have missing coordinates`);
     //these are the city locations, displayed as a set of dots 
     vis.Dots = vis.svg.selectAll('circle')
-                    .data(vis.data) 
+                    .data(vis.data.filter(d => d.LATITUDE && d.LONGITUDE))
                     .join('circle')
                         .attr("fill", "steelblue")  //---- TO DO- color by magnitude 
                         .attr("stroke", "black")
@@ -68,14 +72,15 @@ class LeafletMap {
                         //leaflet so that it can project them on the coordinates of the view. 
                         //the returned conversion produces an x and y point. 
                         //We have to select the the desired one using .x or .y
+                        .style("cursor", "default")
                         .attr("cx", d => vis.theMap.latLngToLayerPoint([d.LATITUDE,d.LONGITUDE]).x)
                         .attr("cy", d => vis.theMap.latLngToLayerPoint([d.LATITUDE,d.LONGITUDE]).y) 
                         .attr("r", d=> 3)  // --- TO DO- want to make radius proportional to earthquake size? 
                         .on('mouseover', function(event,d) { //function to add mouseover event
                             d3.select(this).transition() //D3 selects the object we have moused over in order to perform operations on it
                               .duration('150') //how long we are transitioning between the two states (works like keyframes)
-                              .attr("fill", "red") //change the fill
-                              .attr('r', 4); //change radius
+                              .attr("fill", "#ff5733")
+                              .attr("r", 6);
 
                             //create a tool tip
                             d3.select('#tooltip')
@@ -83,7 +88,16 @@ class LeafletMap {
                                 .style('z-index', 1000000)
                                   // Format number with million and thousand separator
                                   //***** TO DO- change this tooltip to show useful information about the quakes
-                                .html(`<div class="tooltip-label">City: ${d.city}, Population ${d3.format(',')(d.population)}</div>`);
+                                .html(`
+                                  <div class="tooltip-label">
+                                    <b>Request:</b> ${d.SR_TYPE_DESC}<br>
+                                    <b>Created:</b> ${d.DATE_CREATED}<br>
+                                    <b>Closed:</b> ${d.DATE_CLOSED}<br>
+                                    <b>Department:</b> ${d.DEPT_NAME}<br>
+                                    <b>Priority:</b> ${d.PRIORITY}<br>
+                                    <b>Neighborhood:</b> ${d.NEIGHBORHOOD}
+                                  </div>
+                                `);
 
                           })
                         .on('mousemove', (event) => {
