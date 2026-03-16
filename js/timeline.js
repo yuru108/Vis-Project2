@@ -7,11 +7,7 @@
     return;
   }
 
-  const timelineTooltip = d3
-    .select("body")
-    .append("div")
-    .attr("class", "timeline-tooltip")
-    .style("opacity", 0);
+  const timelineTooltip = d3.select("#tooltip");
 
   d3.csv(csvPath)
     .then((data) => {
@@ -205,8 +201,8 @@
         timelineTooltip
           .style("opacity", 1)
           .html(`
-            <div class="date">Date: ${d3.timeFormat("%Y-%m-%d")(d.date)}</div>
-            <div class="metric">Requests: <strong>${d.count}</strong></div>
+            <div><strong>Date:</strong> ${d3.timeFormat("%Y-%m-%d")(d.date)}</div>
+            <div><strong>Requests:</strong> ${d.count}</div>
           `)
           .style("left", `${event.pageX + 12}px`)
           .style("top", `${event.pageY + 12}px`);

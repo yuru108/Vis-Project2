@@ -66,29 +66,6 @@
   stroke-width: 2;
 }
 
-.timeline-tooltip {
-  position: absolute;
-  background: #f8fafc;
-  border: 1px solid #d7dfe8;
-  border-radius: 10px;
-  padding: 10px 12px;
-  font-size: 14px;
-  color: #1f2a36;
-  pointer-events: none;
-  z-index: 2000;
-  box-shadow: 0 10px 24px rgba(24, 39, 75, 0.16);
-}
-
-.timeline-tooltip .date {
-  margin: 0 0 6px;
-  font-weight: 700;
-  color: #1f2a36;
-}
-
-.timeline-tooltip .metric {
-  color: #30465e;
-}
-
 .timeline-hover-line {
   stroke: #8ca0b2;
   stroke-width: 1.5;
