@@ -7,6 +7,12 @@
     return;
   }
 
+  const timelineTooltip = d3
+    .select("body")
+    .append("div")
+    .attr("class", "timeline-tooltip")
+    .style("opacity", 0);
+
   d3.csv(csvPath)
     .then((data) => {
       const allowedFields = ["SR_TYPE", "SR_TYPE_DESC", "DATE_CREATED", "DATE_TIME_RECEIVED"];
@@ -158,6 +164,58 @@
       .y((d) => y(d.count));
 
     g.append("path").datum(data).attr("class", "timeline-line").attr("d", line);
+
+    const focus = g
+      .append("circle")
+      .attr("class", "timeline-dot")
+      .attr("r", 5)
+      .style("display", "none");
+
+    const hoverLine = g
+      .append("line")
+      .attr("class", "timeline-hover-line")
+      .attr("y1", 0)
+      .attr("y2", innerHeight)
+      .style("display", "none");
+
+    const bisectDate = d3.bisector((d) => d.date).left;
+
+    g.append("rect")
+      .attr("width", innerWidth)
+      .attr("height", innerHeight)
+      .attr("fill", "transparent")
+      .on("mousemove", function (event) {
+        const mouseX = d3.pointer(event, this)[0];
+        const hoveredDate = x.invert(mouseX);
+        const idx = bisectDate(data, hoveredDate, 1);
+        const d0 = data[idx - 1];
+        const d1 = data[idx] || d0;
+        const d = hoveredDate - d0.date > d1.date - hoveredDate ? d1 : d0;
+
+        focus
+          .style("display", null)
+          .attr("cx", x(d.date))
+          .attr("cy", y(d.count));
+
+        hoverLine
+          .style("display", null)
+          .attr("x1", x(d.date))
+          .attr("x2", x(d.date));
+
+        timelineTooltip
+          .style("opacity", 1)
+          .html(`
+            <div class="date">Date: ${d3.timeFormat("%Y-%m-%d")(d.date)}</div>
+            <div class="metric">Requests: <strong>${d.count}</strong></div>
+          `)
+          .style("left", `${event.pageX + 12}px`)
+          .style("top", `${event.pageY + 12}px`);
+      })
+      .on("mouseleave", function () {
+        focus.style("display", "none");
+        hoverLine.style("display", "none");
+        timelineTooltip.style("opacity", 0);
+      });
 
   }
 })();
