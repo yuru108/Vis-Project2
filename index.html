@@ -25,6 +25,28 @@
       <option value="priority">Priority</option>
       <option value="department">Department</option>
     </select>
+
+    <section id="bar-charts" class="bar-charts-section">
+      <h3>Request Counts</h3>
+      <div class="charts-grid">
+        <div class="chart-card">
+          <h4>Requests by Neighborhood</h4>
+          <div id="chart-neighborhood" class="bar-chart"></div>
+        </div>
+        <div class="chart-card">
+          <h4>Requests by Method Received</h4>
+          <div id="chart-method" class="bar-chart"></div>
+        </div>
+        <div class="chart-card">
+          <h4>Requests by Service Department</h4>
+          <div id="chart-department" class="bar-chart"></div>
+        </div>
+        <div class="chart-card">
+          <h4>Requests by Priority Level</h4>
+          <div id="chart-priority" class="bar-chart"></div>
+        </div>
+      </div>
+    </section>
     
   </main>
 
@@ -34,6 +56,7 @@
   <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
   <script src="js/d3.v6.min.js"></script>
   <script src="js/leaflet.js"></script>
+  <script src="js/barchart.js"></script>
   <script src="js/main.js"></script>
   <script src="js/leafletMap.js"></script>
 </body>

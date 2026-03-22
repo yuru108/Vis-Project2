@@ -131,6 +131,7 @@ d3.csv('data/Cincinnati311.csv')
       });
 
     leafletMap = new LeafletMap({ parentElement: '#my-map'}, parsedData);
+    renderAllBarCharts(parsedData);
 
   })
   .catch(error => console.error(error));
