@@ -83,20 +83,20 @@ class LeafletMap {
     L.svg({clickable:true}).addTo(vis.theMap)// we have to make the svg layer clickable
     vis.overlay = d3.select(vis.theMap.getPanes().overlayPane)
     vis.svg = vis.overlay.select('svg').attr("pointer-events", "auto")
-    vis.missingGPS = vis.data.filter(d => !d.LATITUDE || !d.LONGITUDE).length; //Count missing GPS coordinates
+    vis.missingGPS = vis.data.filter(d => !d.LATITUDE || !d.LONGITUDE).length;
     d3.select("#missing-data")
       .text(`${vis.missingGPS} requests could not be mapped because they have missing coordinates`);
 
     //Color Scales
 
-    vis.responseScale = d3.scaleSequential() //Response time
-      .domain(d3.extent(vis.data, d => d.response_days))
+    vis.responseScale = d3.scaleSequential()
       .interpolator(d3.interpolateOrRd);
     vis.neighborhoodScale = d3.scaleOrdinal(d3.schemeCategory10);//Neighborhood
     vis.priorityScale = d3.scaleOrdinal()//Priority
       .domain(["LOW","MEDIUM","HIGH"])
       .range(["green","orange","red"]);
     vis.departmentScale = d3.scaleOrdinal(d3.schemeTableau10);//Department
+    vis.updateColorScales();
 
     vis.colorMode = "response";//Default color mode
     vis.isFiltered = false; // Track if data is currently filtered
@@ -129,7 +129,7 @@ class LeafletMap {
                         .attr("cx", d => vis.theMap.latLngToLayerPoint([d.LATITUDE,d.LONGITUDE]).x)
                         .attr("cy", d => vis.theMap.latLngToLayerPoint([d.LATITUDE,d.LONGITUDE]).y) 
                         .attr("r", d=> 3);  // --- TO DO- want to make radius proportional to earthquake size? 
-
+    vis.updateDots();
     vis.addHoverEvents(vis.Dots);
     
     //handler here for updating the map, as you zoom in and out           
@@ -157,6 +157,77 @@ class LeafletMap {
       .attr("fill", d => vis.getColor(d))  //---- TO DO- color by magnitude 
       .attr("r", 3) ; 
 
+  }
+
+  updateColorScales() {
+    let vis = this;
+    const domain = d3.extent(vis.data, d => d.response_days);
+    if (!Number.isFinite(domain[0]) || !Number.isFinite(domain[1])) {
+      vis.responseScale.domain([0, 1]);
+      return;
+    }
+    vis.responseScale.domain(domain);
+  }
+
+  updateDots() {
+    let vis = this;
+
+    vis.Dots = vis.svg.selectAll('circle')
+      .data(vis.data.filter(d => d.LATITUDE && d.LONGITUDE))
+      .join(
+        enter => enter
+          .append('circle')
+          .attr("stroke", "black")
+          .style("cursor", "default")
+          .attr("r", 3),
+        update => update,
+        exit => exit.remove()
+      )
+      .on('mouseover', function(event,d) {
+        d3.select(this).transition()
+          .duration('150')
+          .attr("fill", "#ff5733")
+          .attr("r", 6);
+
+        d3.select('#tooltip')
+          .style('opacity', 1)
+          .style('z-index', 1000000)
+          .html(`
+            <div class="tooltip-label">
+              <b>Request:</b> ${d.SR_TYPE_DESC}<br>
+              <b>Created:</b> ${d.DATE_CREATED}<br>
+              <b>Closed:</b> ${d.DATE_CLOSED}<br>
+              <b>Department:</b> ${d.DEPT_NAME}<br>
+              <b>Priority:</b> ${d.PRIORITY}<br>
+              <b>Neighborhood:</b> ${d.NEIGHBORHOOD}
+            </div>
+          `);
+      })
+      .on('mousemove', (event) => {
+        d3.select('#tooltip')
+          .style('left', (event.pageX + 10) + 'px')
+          .style('top', (event.pageY + 10) + 'px');
+      })
+      .on('mouseleave', function() {
+        d3.select(this).transition()
+          .duration('150')
+          .attr("fill", "steelblue")
+          .attr('r', 3);
+
+        d3.select('#tooltip').style('opacity', 0);
+      });
+
+    vis.updateVis();
+  }
+
+  setData(newData) {
+    let vis = this;
+    vis.data = Array.isArray(newData) ? newData : [];
+    vis.missingGPS = vis.data.filter(d => !d.LATITUDE || !d.LONGITUDE).length;
+    d3.select("#missing-data")
+      .text(`${vis.missingGPS} requests could not be mapped because they have missing coordinates`);
+    vis.updateColorScales();
+    vis.updateDots();
   }
 
   getColor(d) {
