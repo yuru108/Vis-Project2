@@ -55,12 +55,6 @@ svg
   .attr("font-family", "'Noto Serif TC', 'Source Serif 4', serif")
   .text("D3 已就緒");
 
-// **This Needs To Be Moved To A Separate File**
-
-// Load 311 service requests, then normalize and filter records before mapping.
-// Reason: raw CSV fields can vary in naming/casing and may include invalid coordinates,
-// which can break or clutter the map. This step standardizes latitude/longitude and
-// the Leaflet layer renders accurate, focused points.
 
 let leafletMap;
 let allRecords = [];
@@ -192,8 +186,15 @@ function renderServiceTypeList() {
   });
 }
 
+// **This Needs To Be Moved To A Separate File**
+
+// Load 311 service requests, then normalize and filter records before mapping.
+// Reason: raw CSV fields can vary in naming/casing and may include invalid coordinates,
+// which can break or clutter the map. This step standardizes latitude/longitude and
+// the Leaflet layer renders accurate, focused points.
+
 d3.csv('data/Cincinnati311.csv')
-.then(data => {
+  .then(data => {
     console.log("number of items: " + data.length);
 
     const allowedFields = [
@@ -270,7 +271,7 @@ d3.csv('data/Cincinnati311.csv')
     }
 
     renderServiceTypeList();
-    leafletMap = new LeafletMap({ parentElement: '#my-map'}, allRecords);
+    leafletMap = new LeafletMap({ parentElement: '#my-map' }, allRecords);
     applyFiltersAndRender();
 
   })

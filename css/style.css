@@ -1,3 +1,26 @@
+:root {
+  --service-type-pthole: #d04a39;
+  --service-type-mtl-frn: #355070;
+  --service-type-slpyst: #457b9d;
+  --service-type-rf-collt: #2a9d8f;
+  --service-type-bld-res: #6d597a;
+  --service-type-litr-prv: #8ab17d;
+  --service-type-cmdvabdv: #f4a261;
+  --service-type-tlgr-prv: #2f6690;
+  --service-type-311assit: #bc4749;
+  --service-type-ydwsta-j: #9c6644;
+  --service-type-rwfrntrt: #6c757d;
+  --service-type-strsgn: #3a86ff;
+  --service-type-trash-i: #ff7f11;
+  --service-type-rcyclng: #588157;
+  --service-type-tsig-mal: #277da1;
+  --service-type-trshcrtr: #7f5539;
+  --service-type-plcjunkv: #a44a3f;
+  --service-type-dapub1: #495057;
+  --service-type-svccmplt: #4d908e;
+  --service-type-repair96: #8d99ae;
+}
+
 #my-map {
   width: 100%;
   height: 500px;
@@ -137,6 +160,32 @@
 
 .bar-charts-section h3 {
   margin: 10px 0 14px;
+}
+
+.service-type-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 0 0 14px;
+  padding: 8px;
+  border: 1px solid #e5e5e5;
+  border-radius: 6px;
+  background: #fafbfc;
+}
+
+.service-type-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #2c3e50;
+}
+
+.service-type-legend-swatch {
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  flex-shrink: 0;
 }
 
 .charts-grid {
