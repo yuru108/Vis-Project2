@@ -15,7 +15,17 @@
   </header>
 
   <main>
-    <section><div id="my-map"></div></section>
+    <section class="map-wrapper">
+      <div id="my-map"></div>
+      <div class="map-search-overlay">
+        <input id="service-type-search" type="search" placeholder="Search service types" aria-label="Search service types" />
+        <details id="filters-section" class="filters-panel" open>
+          <summary class="filters-summary-toggle">Visible Service Types</summary>
+          <div id="service-type-list" class="service-type-list" aria-label="Service type list"></div>
+          <p id="filter-summary" class="filter-summary"></p>
+        </details>
+      </div>
+    </section>
     <div id="tooltip" class="tooltip"></div>
     <h3 id="missing-data"></h3>
 
@@ -52,11 +62,6 @@
           <div id="chart-priority" class="bar-chart"></div>
         </div>
       </div>
-    </section>
-
-    <section id="timeline-section">
-      <h3>Timeline</h3>
-      <div id="timeline-chart"></div>
     </section>
     
   </main>

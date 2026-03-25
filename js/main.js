@@ -62,6 +62,136 @@ svg
 // which can break or clutter the map. This step standardizes latitude/longitude and
 // the Leaflet layer renders accurate, focused points.
 
+let leafletMap;
+let allRecords = [];
+let filteredRecords = [];
+let serviceTypeOptions = [];
+let activeServiceTypes = new Set();
+
+function cleanText(value, fallback = "") {
+  const text = (value ?? "").toString().trim();
+  return text || fallback;
+}
+
+function normalizeTypeCode(value) {
+  return cleanText(value, "UNKNOWN").toUpperCase();
+}
+
+function isPotholeRecord(record) {
+  const code = normalizeTypeCode(record.SR_TYPE);
+  const desc = cleanText(record.SR_TYPE_DESC).toUpperCase();
+  return code === "PTHOLE" || desc.includes("POTHOLE");
+}
+
+function buildServiceTypeOptions(data) {
+  const grouped = d3.rollups(
+    data,
+    (rows) => ({
+      count: rows.length,
+      label: cleanText(rows[0].SR_TYPE_DESC, rows[0].SR_TYPE),
+    }),
+    (d) => d.SR_TYPE
+  );
+
+  return grouped
+    .map(([key, values]) => ({
+      key,
+      label: values.label,
+      count: values.count,
+    }))
+    .sort((a, b) => d3.descending(a.count, b.count));
+}
+
+function getPotholeDefaultKeys() {
+  return serviceTypeOptions
+    .filter((d) => d.key === "PTHOLE" || d.label.toUpperCase().includes("POTHOLE"))
+    .map((d) => d.key);
+}
+
+function updateFilterSummary() {
+  const summary = d3.select("#filter-summary");
+  if (summary.empty()) return;
+  summary.text(
+    `${filteredRecords.length.toLocaleString()} visible requests from ${activeServiceTypes.size.toLocaleString()} selected service types`
+  );
+}
+
+function applyFiltersAndRender() {
+  filteredRecords = allRecords.filter((d) => activeServiceTypes.has(d.SR_TYPE));
+
+  if (leafletMap) {
+    leafletMap.setData(filteredRecords);
+  }
+  renderAllBarCharts(filteredRecords);
+
+  if (typeof renderTimelineChart === "function") {
+    renderTimelineChart(filteredRecords);
+  }
+
+  updateFilterSummary();
+}
+
+function applySearchVisibility(searchValue) {
+  const query = cleanText(searchValue).toUpperCase();
+  d3.select("#service-type-list")
+    .selectAll(".service-type-item")
+    .classed("is-hidden", (d) => {
+      if (!query) return false;
+      const haystack = `${d.key} ${d.label}`.toUpperCase();
+      return !haystack.includes(query);
+    });
+}
+
+function updateTypeListVisualState() {
+  d3.select("#service-type-list")
+    .selectAll(".service-type-item")
+    .classed("is-inactive", (d) => !activeServiceTypes.has(d.key))
+    .select("input")
+    .property("checked", (d) => activeServiceTypes.has(d.key));
+}
+
+function renderServiceTypeList() {
+  const list = d3.select("#service-type-list");
+  if (list.empty()) {
+    return;
+  }
+
+  const rows = list
+    .selectAll("div.service-type-item")
+    .data(serviceTypeOptions, (d) => d.key)
+    .join((enter) => {
+      const row = enter.append("div").attr("class", "service-type-item");
+      const label = row.append("label");
+
+      label
+        .append("input")
+        .attr("type", "checkbox")
+        .on("change", function (event, d) {
+          if (this.checked) {
+            activeServiceTypes.add(d.key);
+          } else {
+            activeServiceTypes.delete(d.key);
+          }
+          updateTypeListVisualState();
+          applyFiltersAndRender();
+        });
+
+      label.append("span").attr("class", "service-type-name");
+      row.append("span").attr("class", "service-type-count");
+      return row;
+    });
+
+  rows.select(".service-type-name").text((d) => `${d.label} [${d.key}]`);
+  rows.select(".service-type-count").text((d) => d.count.toLocaleString());
+
+  updateTypeListVisualState();
+  applySearchVisibility(d3.select("#service-type-search").property("value"));
+
+  d3.select("#service-type-search").on("input", function () {
+    applySearchVisibility(this.value);
+  });
+}
+
 d3.csv('data/Cincinnati311.csv')
 .then(data => {
     console.log("number of items: " + data.length);
@@ -111,7 +241,7 @@ d3.csv('data/Cincinnati311.csv')
       'COMMUNITY_COUNCIL_NEIGHBORHOOD'
     ];
 
-    const parsedData = data
+    allRecords = data
       .map(d => {
         const row = {};
         allowedFields.forEach(field => {
@@ -120,18 +250,28 @@ d3.csv('data/Cincinnati311.csv')
 
         row.LATITUDE = +(d.LATITUDE ?? d.latitude);
         row.LONGITUDE = +(d.LONGITUDE ?? d.longitude);
+        row.SR_TYPE = normalizeTypeCode(d.SR_TYPE);
+        row.SR_TYPE_DESC = cleanText(d.SR_TYPE_DESC, row.SR_TYPE);
 
         return row;
       })
-      .filter(d => Number.isFinite(d.LATITUDE) && Number.isFinite(d.LONGITUDE))
-      .filter(d => {
-        const srType = (d.SR_TYPE ?? '').toUpperCase();
-        const srTypeDesc = (d.SR_TYPE_DESC ?? '').toUpperCase();
-        return srType === 'PTHOLE' || srTypeDesc.includes('POTHOLE');
-      });
+      .filter(d => Number.isFinite(d.LATITUDE) && Number.isFinite(d.LONGITUDE));
 
-    leafletMap = new LeafletMap({ parentElement: '#my-map'}, parsedData);
-    renderAllBarCharts(parsedData);
+    serviceTypeOptions = buildServiceTypeOptions(allRecords);
+
+    const potholeDefaults = getPotholeDefaultKeys();
+    activeServiceTypes = new Set(potholeDefaults);
+    if (!activeServiceTypes.size) {
+      allRecords.forEach((d) => {
+        if (isPotholeRecord(d)) {
+          activeServiceTypes.add(d.SR_TYPE);
+        }
+      });
+    }
+
+    renderServiceTypeList();
+    leafletMap = new LeafletMap({ parentElement: '#my-map'}, allRecords);
+    applyFiltersAndRender();
 
   })
   .catch(error => console.error(error));

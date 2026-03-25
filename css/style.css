@@ -4,6 +4,32 @@
   margin-bottom: 16px;
 }
 
+.map-wrapper {
+  position: relative;
+}
+
+.map-search-overlay {
+  position: absolute;
+  top: 12px;
+  right: 65px;
+  width: 20%;
+  min-width: 180px;
+  max-width: 320px;
+  z-index: 500;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.map-search-overlay input {
+  width: 100%;
+  border: 1px solid #c6c6c6;
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 13px;
+  background: rgba(255, 255, 255, 0.95);
+}
+
 .tooltip {
   position: absolute;
   background: white;
@@ -17,6 +43,96 @@
 
 .bar-charts-section {
   margin-top: 20px;
+}
+
+.filters-panel {
+  margin: 0;
+  padding: 10px;
+  border: 1px solid #d7d7d7;
+  border-radius: 8px;
+  background: rgba(250, 250, 250, 0.95);
+}
+
+.filters-summary-toggle {
+  list-style: none;
+  cursor: pointer;
+  font-weight: 600;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.filters-summary-toggle::-webkit-details-marker {
+  display: none;
+}
+
+.filters-summary-toggle::after {
+  content: "\25BE";
+  font-size: 12px;
+  transition: transform 160ms ease;
+}
+
+.filters-panel[open] .filters-summary-toggle::after {
+  transform: rotate(180deg);
+}
+
+.filters-panel .service-type-list {
+  margin-top: 8px;
+}
+
+.service-type-list {
+  max-height: 220px;
+  overflow-y: auto;
+  border: 1px solid #dfdfdf;
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 6px;
+}
+
+.service-type-item {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: start;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 6px;
+}
+
+.service-type-item:hover {
+  background: #f3f7fc;
+}
+
+.service-type-item label {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr);
+  align-items: start;
+  gap: 8px;
+  cursor: pointer;
+  min-width: 0;
+}
+
+.service-type-item input[type="checkbox"] {
+  margin: 2px 0 0;
+}
+
+.service-type-count {
+  font-size: 12px;
+  color: #4b5d73;
+}
+
+.service-type-item.is-hidden {
+  display: none;
+}
+
+.service-type-item.is-inactive {
+  color: #7a7a7a;
+}
+
+.filter-summary {
+  margin: 8px 0 0;
+  font-size: 13px;
+  color: #374151;
 }
 
 .bar-charts-section h3 {
@@ -60,6 +176,12 @@
 }
 
 @media (max-width: 900px) {
+  .map-search-overlay {
+    width: calc(100% - 24px);
+    min-width: 0;
+    max-width: none;
+  }
+
   .charts-grid {
     grid-template-columns: 1fr;
   }
