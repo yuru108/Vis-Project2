@@ -11,13 +11,18 @@
 
   d3.csv(csvPath)
     .then((data) => {
-      const allowedFields = ["SR_TYPE", "SR_TYPE_DESC", "DATE_CREATED", "DATE_TIME_RECEIVED"];
-      const mappedRows = data.map((d) => {
+      const allowedFields = ["SR_TYPE", "SR_TYPE_DESC", "DATE_CREATED", "DATE_TIME_RECEIVED", "LATITUDE", "LONGITUDE", "ID", "PRIORITY", "DEPT_NAME", "DATE_CLOSED", "NEIGHBORHOOD"];
+      const mappedRows = data.map((d, i) => {
         const row = {};
         allowedFields.forEach((field) => {
           const rawValue = d[field] ?? d[field.replace(/^\uFEFF/, "")];
           row[field] = rawValue ?? "";
         });
+
+        row.LATITUDE = Number(d.LATITUDE ?? d.latitude);
+        row.LONGITUDE = Number(d.LONGITUDE ?? d.longitude);
+        row.ID = d.ID ?? d.id ?? i;
+        row._index = i;
         return row;
       });
 
@@ -32,7 +37,12 @@
           ...d,
           createdDate: parseRequestDate(d.DATE_CREATED || d.DATE_TIME_RECEIVED),
         }))
-        .filter((d) => d.createdDate instanceof Date && !Number.isNaN(d.createdDate.getTime()));
+        .filter((d) =>
+          d.createdDate instanceof Date &&
+          !Number.isNaN(d.createdDate.getTime()) &&
+          Number.isFinite(d.LATITUDE) &&
+          Number.isFinite(d.LONGITUDE)
+        );
 
       if (!parsed.length) {
         chartContainer.html("<p>No timeline data available.</p>");
@@ -40,10 +50,10 @@
       }
 
       const dailyCounts = aggregateByDay(parsed);
-      renderTimeline(dailyCounts);
+      renderTimeline(dailyCounts, parsed);
 
       window.addEventListener("resize", () => {
-        renderTimeline(dailyCounts);
+        renderTimeline(dailyCounts, parsed);
       });
     })
     .catch((error) => {
@@ -82,7 +92,7 @@
     }));
   }
 
-  function renderTimeline(data) {
+  function renderTimeline(data, originalData) {
     chartContainer.selectAll("*").remove();
 
     const containerWidth = chartContainer.node().clientWidth;
@@ -213,5 +223,27 @@
         timelineTooltip.style("opacity", 0);
       });
 
+    const brush = d3.brushX()
+      .extent([[0, 0], [innerWidth, innerHeight]])
+      .on("brush end", brushed);
+
+    g.append("g")
+      .attr("class", "brush")
+      .call(brush);
+
+    function brushed(event) {
+      if (!event.selection) {
+        dispatcher.call("filterData", null, null);
+      } else {
+        const [x0, x1] = event.selection;
+        const startDate = x.invert(x0);
+        const endDate = x.invert(x1);
+        const filteredData = originalData.filter(d => {
+          const date = d.createdDate;
+          return date >= startDate && date <= endDate;
+        });
+        dispatcher.call("filterData", null, filteredData);
+      }
+    }
   }
 })();

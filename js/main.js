@@ -14,6 +14,8 @@ const data = d3.range(18).map(() => ({
   r: 12 + Math.random() * 36,
 }));
 
+const dispatcher = d3.dispatch("filterData");
+
 svg
   .append("rect")
   .attr("width", width)

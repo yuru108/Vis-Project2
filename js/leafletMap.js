@@ -99,17 +99,19 @@ class LeafletMap {
     vis.departmentScale = d3.scaleOrdinal(d3.schemeTableau10);//Department
 
     vis.colorMode = "response";//Default color mode
+    vis.isFiltered = false; // Track if data is currently filtered
 
     //Use the colors
     d3.select("#color-select").on("change", function() {
-
+      vis.updateVis();
       vis.colorMode = this.value;
 
-      vis.Dots
-        .transition()
-        .duration(400)
-        .attr("fill", d => vis.getColor(d));
-
+      if (vis.isFiltered) {
+        vis.Dots
+          .transition()
+          .duration(400)
+          .attr("fill", d => vis.getColor(d));
+      }
     });
     
     //these are the city locations, displayed as a set of dots 
@@ -126,52 +128,18 @@ class LeafletMap {
                         .style("cursor", "default")
                         .attr("cx", d => vis.theMap.latLngToLayerPoint([d.LATITUDE,d.LONGITUDE]).x)
                         .attr("cy", d => vis.theMap.latLngToLayerPoint([d.LATITUDE,d.LONGITUDE]).y) 
-                        .attr("r", d=> 3)  // --- TO DO- want to make radius proportional to earthquake size? 
-                        .on('mouseover', function(event,d) { //function to add mouseover event
-                            d3.select(this).transition() //D3 selects the object we have moused over in order to perform operations on it
-                              .duration('150') //how long we are transitioning between the two states (works like keyframes)
-                              .attr("fill", "#ff5733")
-                              .attr("r", 6);
+                        .attr("r", d=> 3);  // --- TO DO- want to make radius proportional to earthquake size? 
 
-                            //create a tool tip
-                            d3.select('#tooltip')
-                                .style('opacity', 1)
-                                .style('z-index', 1000000)
-                                  // Format number with million and thousand separator
-                                  //***** TO DO- change this tooltip to show useful information about the quakes
-                                .html(`
-                                  <div class="tooltip-label">
-                                    <b>Request:</b> ${d.SR_TYPE_DESC}<br>
-                                    <b>Created:</b> ${d.DATE_CREATED}<br>
-                                    <b>Closed:</b> ${d.DATE_CLOSED}<br>
-                                    <b>Department:</b> ${d.DEPT_NAME}<br>
-                                    <b>Priority:</b> ${d.PRIORITY}<br>
-                                    <b>Neighborhood:</b> ${d.NEIGHBORHOOD}
-                                  </div>
-                                `);
-
-                          })
-                        .on('mousemove', (event) => {
-                            //position the tooltip
-                            d3.select('#tooltip')
-                             .style('left', (event.pageX + 10) + 'px')   
-                              .style('top', (event.pageY + 10) + 'px');
-                         })              
-                        .on('mouseleave', function() { //function to add mouseover event
-                            d3.select(this).transition() //D3 selects the object we have moused over in order to perform operations on it
-                              .duration('150') //how long we are transitioning between the two states (works like keyframes)
-                              .attr("fill", "steelblue") //change the fill  TO DO- change fill again
-                              .attr('r', 3) //change radius
-
-                            d3.select('#tooltip').style('opacity', 0);//turn off the tooltip
-
-                          })
+    vis.addHoverEvents(vis.Dots);
     
     //handler here for updating the map, as you zoom in and out           
     vis.theMap.on("zoomend", function(){
       vis.updateVis();
     });
-
+    dispatcher.on("filterData.map", function(filteredData) {
+      vis.updateBrushedData(filteredData);
+      vis.updateVis();
+    });
   }
 
   updateVis() {
@@ -212,8 +180,53 @@ class LeafletMap {
     if (vis.colorMode === "department") {
       return vis.departmentScale(d.DEPT_NAME);
     }
-
+    vis.updateVis();
     return "steelblue";
+  }
+
+  addHoverEvents(selection) {
+    let vis = this;
+
+    selection
+      .on('mouseover', function(event,d) { //function to add mouseover event
+        d3.select(this).transition() //D3 selects the object we have moused over in order to perform operations on it
+          .duration('150') //how long we are transitioning between the two states (works like keyframes)
+          .attr("fill", "#ff5733")
+          .attr("r", 6);
+
+        //create a tool tip
+        d3.select('#tooltip')
+            .style('opacity', 1)
+            .style('z-index', 1000000)
+              // Format number with million and thousand separator
+              //***** TO DO- change this tooltip to show useful information about the quakes
+            .html(`
+              <div class="tooltip-label">
+                <b>Request:</b> ${d.SR_TYPE_DESC || 'N/A'}<br>
+                <b>Created:</b> ${d.DATE_CREATED || 'N/A'}<br>
+                <b>Closed:</b> ${d.DATE_CLOSED || 'N/A'}<br>
+                <b>Department:</b> ${d.DEPT_NAME || 'N/A'}<br>
+                <b>Priority:</b> ${d.PRIORITY || 'N/A'}<br>
+                <b>Neighborhood:</b> ${d.NEIGHBORHOOD || 'N/A'}
+              </div>
+            `);
+
+      })
+      .on('mousemove', (event) => {
+          //position the tooltip
+          d3.select('#tooltip')
+           .style('left', (event.pageX + 10) + 'px')   
+            .style('top', (event.pageY + 10) + 'px');
+       })              
+      .on('mouseleave', function() { //function to add mouseover event
+          d3.select(this).transition() //D3 selects the object we have moused over in order to perform operations on it
+            .duration('150') //how long we are transitioning between the two states (works like keyframes)
+            .attr("fill", d => vis.getColor(d)) //change the fill back to original color
+            .attr('r', 3) //change radius
+
+          d3.select('#tooltip').style('opacity', 0);//turn off the tooltip
+
+        });
   }
 
   renderVis() {
@@ -221,5 +234,32 @@ class LeafletMap {
 
     //not using right now... 
  
+  }
+  updateBrushedData(filteredData) {
+    let vis = this;
+
+    vis.isFiltered = filteredData && filteredData.length > 0;
+
+    const sourceData = vis.isFiltered ? filteredData : vis.data;
+    const valid = (sourceData || []).filter(d =>
+      Number.isFinite(Number(d.LATITUDE)) && Number.isFinite(Number(d.LONGITUDE))
+    );
+
+    vis.Dots = vis.svg.selectAll('circle')
+      .data(valid, d => d.ID ?? d._index)
+
+    vis.Dots = vis.Dots.join(
+      enter => enter.append("circle"),
+      update => update,
+      exit => exit.remove()
+    )
+      .attr("cx", d => vis.theMap.latLngToLayerPoint([Number(d.LATITUDE), Number(d.LONGITUDE)]).x)
+      .attr("cy", d => vis.theMap.latLngToLayerPoint([Number(d.LATITUDE), Number(d.LONGITUDE)]).y)
+      .attr("fill", d => vis.isFiltered ? vis.getColor(d) : "steelblue")
+      .attr("stroke", "black")
+      .attr("r", 3)
+      .style("cursor", "default");
+
+    vis.addHoverEvents(vis.Dots);
   }
 }
