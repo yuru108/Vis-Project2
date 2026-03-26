@@ -1,6 +1,56 @@
+:root {
+  --service-type-pthole: #d04a39;
+  --service-type-mtl-frn: #355070;
+  --service-type-slpyst: #457b9d;
+  --service-type-rf-collt: #2a9d8f;
+  --service-type-bld-res: #6d597a;
+  --service-type-litr-prv: #8ab17d;
+  --service-type-cmdvabdv: #f4a261;
+  --service-type-tlgr-prv: #2f6690;
+  --service-type-311assit: #bc4749;
+  --service-type-ydwsta-j: #9c6644;
+  --service-type-rwfrntrt: #6c757d;
+  --service-type-strsgn: #3a86ff;
+  --service-type-trash-i: #ff7f11;
+  --service-type-rcyclng: #588157;
+  --service-type-tsig-mal: #277da1;
+  --service-type-trshcrtr: #7f5539;
+  --service-type-plcjunkv: #a44a3f;
+  --service-type-dapub1: #495057;
+  --service-type-svccmplt: #4d908e;
+  --service-type-repair96: #8d99ae;
+}
+
 #my-map {
   width: 100%;
   height: 500px;
+  margin-bottom: 16px;
+}
+
+.map-wrapper {
+  position: relative;
+}
+
+.map-search-overlay {
+  position: absolute;
+  top: 12px;
+  right: 65px;
+  width: 20%;
+  min-width: 180px;
+  max-width: 320px;
+  z-index: 500;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.map-search-overlay input {
+  width: 100%;
+  border: 1px solid #c6c6c6;
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 13px;
+  background: rgba(255, 255, 255, 0.95);
 }
 
 .tooltip {
@@ -12,4 +62,176 @@
   pointer-events: none;
   opacity: 0;
   border-radius: 4px;
+}
+
+.bar-charts-section {
+  margin-top: 20px;
+}
+
+.filters-panel {
+  margin: 0;
+  padding: 10px;
+  border: 1px solid #d7d7d7;
+  border-radius: 8px;
+  background: rgba(250, 250, 250, 0.95);
+}
+
+.filters-summary-toggle {
+  list-style: none;
+  cursor: pointer;
+  font-weight: 600;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.filters-summary-toggle::-webkit-details-marker {
+  display: none;
+}
+
+.filters-summary-toggle::after {
+  content: "\25BE";
+  font-size: 12px;
+  transition: transform 160ms ease;
+}
+
+.filters-panel[open] .filters-summary-toggle::after {
+  transform: rotate(180deg);
+}
+
+.filters-panel .service-type-list {
+  margin-top: 8px;
+}
+
+.service-type-list {
+  max-height: 220px;
+  overflow-y: auto;
+  border: 1px solid #dfdfdf;
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 6px;
+}
+
+.service-type-item {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: start;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 6px;
+}
+
+.service-type-item:hover {
+  background: #f3f7fc;
+}
+
+.service-type-item label {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr);
+  align-items: start;
+  gap: 8px;
+  cursor: pointer;
+  min-width: 0;
+}
+
+.service-type-item input[type="checkbox"] {
+  margin: 2px 0 0;
+}
+
+.service-type-count {
+  font-size: 12px;
+  color: #4b5d73;
+}
+
+.service-type-item.is-hidden {
+  display: none;
+}
+
+.service-type-item.is-inactive {
+  color: #7a7a7a;
+}
+
+.filter-summary {
+  margin: 8px 0 0;
+  font-size: 13px;
+  color: #374151;
+}
+
+.bar-charts-section h3 {
+  margin: 10px 0 14px;
+}
+
+.service-type-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 0 0 14px;
+  padding: 8px;
+  border: 1px solid #e5e5e5;
+  border-radius: 6px;
+  background: #fafbfc;
+}
+
+.service-type-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #2c3e50;
+}
+
+.service-type-legend-swatch {
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+.charts-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(280px, 1fr));
+  gap: 14px;
+}
+
+.chart-card {
+  border: 1px solid #d7d7d7;
+  border-radius: 8px;
+  padding: 10px;
+  background: #fafafa;
+}
+
+.chart-card h4 {
+  margin: 0 0 8px;
+  font-size: 14px;
+}
+
+.bar-chart svg {
+  width: 100%;
+  height: auto;
+}
+
+.bar-chart .axis text {
+  font-size: 10px;
+}
+
+.bar-chart .axis path,
+.bar-chart .axis line {
+  stroke: #999;
+}
+
+.bar-chart .bar {
+  fill: #2b7bb9;
+}
+
+@media (max-width: 900px) {
+  .map-search-overlay {
+    width: calc(100% - 24px);
+    min-width: 0;
+    max-width: none;
+  }
+
+  .charts-grid {
+    grid-template-columns: 1fr;
+  }
 }
