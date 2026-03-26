@@ -10,6 +10,8 @@ class LeafletMap {
       parentElement: _config.parentElement,
     }
     this.data = _data;
+    this.highlightedData = [];
+    this.highlightedSet = new Set();
     this.initVis();
   }
   
@@ -112,6 +114,7 @@ class LeafletMap {
           .duration(400)
           .attr("fill", d => vis.getColor(d));
       }
+      vis.applyDotStyles();
     });
     
     //these are the city locations, displayed as a set of dots 
@@ -153,10 +156,52 @@ class LeafletMap {
    //redraw based on new zoom- need to recalculate on-screen position
     vis.Dots
       .attr("cx", d => vis.theMap.latLngToLayerPoint([d.LATITUDE,d.LONGITUDE]).x)
-      .attr("cy", d => vis.theMap.latLngToLayerPoint([d.LATITUDE,d.LONGITUDE]).y)
-      .attr("fill", d => vis.getColor(d))  //---- TO DO- color by magnitude 
-      .attr("r", 3) ; 
+      .attr("cy", d => vis.theMap.latLngToLayerPoint([d.LATITUDE,d.LONGITUDE]).y);
 
+    vis.applyDotStyles();
+
+  }
+
+  setHighlightedRecords(records) {
+    let vis = this;
+    vis.highlightedData = Array.isArray(records) ? records : [];
+    vis.highlightedSet = new Set(vis.highlightedData);
+    vis.applyDotStyles();
+  }
+
+  hasHighlightedRecords() {
+    return this.highlightedSet && this.highlightedSet.size > 0;
+  }
+
+  isHighlightedRecord(d) {
+    return this.hasHighlightedRecords() && this.highlightedSet.has(d);
+  }
+
+  applyDotStyles() {
+    let vis = this;
+    if (!vis.Dots) {
+      return;
+    }
+
+    vis.Dots
+      .attr("fill", d => vis.getDotFill(d))
+      .attr("stroke", d => (vis.isHighlightedRecord(d) ? "#0f172a" : "black"))
+      .attr("stroke-width", d => (vis.isHighlightedRecord(d) ? 1.5 : 1))
+      .attr("opacity", d => {
+        if (!vis.hasHighlightedRecords()) {
+          return 0.9;
+        }
+        return vis.isHighlightedRecord(d) ? 1 : 0.18;
+      })
+      .attr("r", d => (vis.isHighlightedRecord(d) ? 6 : 3));
+  }
+
+  getDotFill(d) {
+    let vis = this;
+    if (vis.isHighlightedRecord(d)) {
+      return "#ffd166";
+    }
+    return vis.getColor(d);
   }
 
   updateColorScales() {
@@ -208,11 +253,13 @@ class LeafletMap {
           .style('left', (event.pageX + 10) + 'px')
           .style('top', (event.pageY + 10) + 'px');
       })
-      .on('mouseleave', function() {
+      .on('mouseleave', function(event,d) {
         d3.select(this).transition()
           .duration('150')
-          .attr("fill", "steelblue")
-          .attr('r', 3);
+          .attr("fill", vis.getDotFill(d))
+          .attr('r', vis.isHighlightedRecord(d) ? 6 : 3)
+          .attr('opacity', vis.hasHighlightedRecords() && !vis.isHighlightedRecord(d) ? 0.18 : 0.9)
+          .attr('stroke-width', vis.isHighlightedRecord(d) ? 1.5 : 1);
 
         d3.select('#tooltip').style('opacity', 0);
       });
@@ -227,6 +274,10 @@ class LeafletMap {
     d3.select("#missing-data")
       .text(`${vis.missingGPS} requests could not be mapped because they have missing coordinates`);
     vis.updateColorScales();
+    if (vis.hasHighlightedRecords()) {
+      vis.highlightedData = vis.highlightedData.filter((d) => vis.data.includes(d));
+      vis.highlightedSet = new Set(vis.highlightedData);
+    }
     vis.updateDots();
   }
 
@@ -292,8 +343,10 @@ class LeafletMap {
       .on('mouseleave', function() { //function to add mouseover event
           d3.select(this).transition() //D3 selects the object we have moused over in order to perform operations on it
             .duration('150') //how long we are transitioning between the two states (works like keyframes)
-            .attr("fill", d => vis.getColor(d)) //change the fill back to original color
-            .attr('r', 3) //change radius
+            .attr("fill", d => vis.getDotFill(d)) //change the fill back to original color
+            .attr('r', d => vis.isHighlightedRecord(d) ? 6 : 3)
+            .attr('opacity', d => vis.hasHighlightedRecords() && !vis.isHighlightedRecord(d) ? 0.18 : 0.9)
+            .attr('stroke-width', d => vis.isHighlightedRecord(d) ? 1.5 : 1)
 
           d3.select('#tooltip').style('opacity', 0);//turn off the tooltip
 
@@ -326,11 +379,11 @@ class LeafletMap {
     )
       .attr("cx", d => vis.theMap.latLngToLayerPoint([Number(d.LATITUDE), Number(d.LONGITUDE)]).x)
       .attr("cy", d => vis.theMap.latLngToLayerPoint([Number(d.LATITUDE), Number(d.LONGITUDE)]).y)
-      .attr("fill", d => vis.isFiltered ? vis.getColor(d) : "steelblue")
       .attr("stroke", "black")
       .attr("r", 3)
       .style("cursor", "default");
 
     vis.addHoverEvents(vis.Dots);
+    vis.applyDotStyles();
   }
 }

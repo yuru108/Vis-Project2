@@ -67,6 +67,7 @@ function buildStackData(data, groupAccessor, serviceTypes) {
           row[type] += 1;
         }
       });
+      row.__records = rows;
       return row;
     },
     (d) => cleanCategoryValue(groupAccessor(d))
@@ -77,7 +78,16 @@ function buildStackData(data, groupAccessor, serviceTypes) {
   return grouped;
 }
 
-function renderStackedBarChart({ selector, data, groupAccessor, serviceTypes, colorForType }) {
+function renderStackedBarChart({
+  selector,
+  chartId,
+  data,
+  groupAccessor,
+  serviceTypes,
+  colorForType,
+  selectedLabel,
+  onBarSelect
+}) {
   const margin = { top: 10, right: 10, bottom: 95, left: 50 };
   const width = 560;
   const height = 300;
@@ -101,6 +111,10 @@ function renderStackedBarChart({ selector, data, groupAccessor, serviceTypes, co
     return;
   }
 
+  const rowByLabel = new Map(stackRows.map((row) => [row.label, row]));
+  const isSelected = (label) => Boolean(selectedLabel) && label === selectedLabel;
+  const hasSelection = Boolean(selectedLabel);
+
   const xScale = d3
     .scaleBand()
     .domain(stackRows.map((d) => d.label))
@@ -115,7 +129,7 @@ function renderStackedBarChart({ selector, data, groupAccessor, serviceTypes, co
 
   const stackedSeries = d3.stack().keys(serviceTypes)(stackRows);
 
-  g.selectAll(".stack-layer")
+  const bars = g.selectAll(".stack-layer")
     .data(stackedSeries)
     .join("g")
     .attr("class", "stack-layer")
@@ -125,15 +139,28 @@ function renderStackedBarChart({ selector, data, groupAccessor, serviceTypes, co
       key: d.key,
       label: segment.data.label,
       value: segment.data[d.key],
+      records: segment.data.__records,
       y0: segment[0],
       y1: segment[1]
     })))
     .join("rect")
+    .attr("class", "bar-segment")
     .attr("x", (d) => xScale(d.label))
     .attr("y", (d) => yScale(d.y1))
     .attr("width", xScale.bandwidth())
     .attr("height", (d) => Math.max(0, yScale(d.y0) - yScale(d.y1)))
-    .append("title")
+    .style("cursor", "pointer")
+    .attr("opacity", (d) => (hasSelection && !isSelected(d.label) ? 0.35 : 1))
+    .on("click", (_event, d) => {
+      if (typeof onBarSelect === "function") {
+        onBarSelect({ chartId, label: d.label, records: d.records });
+      }
+    });
+
+  bars
+    .selectAll("title")
+    .data((d) => [d])
+    .join("title")
     .text((d) => `${d.label}\n${d.key}: ${d.value}`);
 
   g.append("g")
@@ -141,10 +168,24 @@ function renderStackedBarChart({ selector, data, groupAccessor, serviceTypes, co
     .attr("transform", `translate(0,${innerHeight})`)
     .call(d3.axisBottom(xScale))
     .selectAll("text")
+    .attr("class", "x-axis-label")
     .attr("text-anchor", "end")
     .attr("dx", "-0.5em")
     .attr("dy", "0.15em")
-    .attr("transform", "rotate(-40)");
+    .attr("transform", "rotate(-40)")
+    .style("cursor", "pointer")
+    .style("font-weight", (d) => (isSelected(d) ? "700" : "400"))
+    .attr("opacity", (d) => (hasSelection && !isSelected(d) ? 0.5 : 1))
+    .on("click", (_event, label) => {
+      if (typeof onBarSelect !== "function") {
+        return;
+      }
+      const row = rowByLabel.get(label);
+      if (!row) {
+        return;
+      }
+      onBarSelect({ chartId, label, records: row.__records });
+    });
 
   g.append("g")
     .attr("class", "axis")
@@ -170,7 +211,7 @@ function renderServiceTypeLegend(serviceTypes, colorForType) {
     `);
 }
 
-function renderAllBarCharts(data) {
+function renderAllBarCharts(data, onBarSelect, selectedState = {}) {
   const serviceTypes = d3
     .rollups(data, (rows) => rows.length, (d) => cleanServiceType(d.SR_TYPE))
     .sort((a, b) => d3.descending(a[1], b[1]))
@@ -181,30 +222,42 @@ function renderAllBarCharts(data) {
 
   renderStackedBarChart({
     selector: "#chart-neighborhood",
+    chartId: "neighborhood",
     data,
     groupAccessor: (d) => d.NEIGHBORHOOD,
     serviceTypes,
-    colorForType
+    colorForType,
+    selectedLabel: selectedState.neighborhood,
+    onBarSelect
   });
   renderStackedBarChart({
     selector: "#chart-method",
+    chartId: "method",
     data,
     groupAccessor: (d) => d.METHOD_RECEIVED,
     serviceTypes,
-    colorForType
+    colorForType,
+    selectedLabel: selectedState.method,
+    onBarSelect
   });
   renderStackedBarChart({
     selector: "#chart-department",
+    chartId: "department",
     data,
     groupAccessor: (d) => d.DEPT_NAME,
     serviceTypes,
-    colorForType
+    colorForType,
+    selectedLabel: selectedState.department,
+    onBarSelect
   });
   renderStackedBarChart({
     selector: "#chart-priority",
+    chartId: "priority",
     data,
     groupAccessor: (d) => d.PRIORITY,
     serviceTypes,
-    colorForType
+    colorForType,
+    selectedLabel: selectedState.priority,
+    onBarSelect
   });
 }

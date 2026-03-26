@@ -63,6 +63,15 @@ let allRecords = [];
 let filteredRecords = [];
 let serviceTypeOptions = [];
 let activeServiceTypes = new Set();
+let selectedBarRecords = [];
+let selectedBarState = null;
+
+const barChartAccessors = {
+  neighborhood: (d) => cleanText(d.NEIGHBORHOOD, "Unknown"),
+  method: (d) => cleanText(d.METHOD_RECEIVED, "Unknown"),
+  department: (d) => cleanText(d.DEPT_NAME, "Unknown"),
+  priority: (d) => cleanText(d.PRIORITY, "Unknown")
+};
 
 function cleanText(value, fallback = "") {
   const text = (value ?? "").toString().trim();
@@ -112,13 +121,67 @@ function updateFilterSummary() {
   );
 }
 
+function getSelectedBarChartState() {
+  if (!selectedBarState) {
+    return {};
+  }
+  return { [selectedBarState.chartId]: selectedBarState.label };
+}
+
+function syncSelectedBarRecordsToCurrentFilter() {
+  if (!selectedBarState) {
+    selectedBarRecords = [];
+    return;
+  }
+
+  const accessor = barChartAccessors[selectedBarState.chartId];
+  if (!accessor) {
+    selectedBarState = null;
+    selectedBarRecords = [];
+    return;
+  }
+
+  selectedBarRecords = filteredRecords.filter(
+    (d) => accessor(d) === selectedBarState.label
+  );
+
+  if (!selectedBarRecords.length) {
+    selectedBarState = null;
+  }
+}
+
+function handleBarSelection(selection) {
+  const clickedSameBar =
+    selectedBarState &&
+    selectedBarState.chartId === selection.chartId &&
+    selectedBarState.label === selection.label;
+
+  if (clickedSameBar) {
+    selectedBarState = null;
+    selectedBarRecords = [];
+  } else {
+    selectedBarState = {
+      chartId: selection.chartId,
+      label: selection.label
+    };
+    selectedBarRecords = Array.isArray(selection.records) ? selection.records : [];
+  }
+
+  renderAllBarCharts(filteredRecords, handleBarSelection, getSelectedBarChartState());
+  if (leafletMap) {
+    leafletMap.setHighlightedRecords(selectedBarRecords);
+  }
+}
+
 function applyFiltersAndRender() {
   filteredRecords = allRecords.filter((d) => activeServiceTypes.has(d.SR_TYPE));
+  syncSelectedBarRecordsToCurrentFilter();
 
   if (leafletMap) {
     leafletMap.setData(filteredRecords);
+    leafletMap.setHighlightedRecords(selectedBarRecords);
   }
-  renderAllBarCharts(filteredRecords);
+  renderAllBarCharts(filteredRecords, handleBarSelection, getSelectedBarChartState());
 
   if (typeof renderTimelineChart === "function") {
     renderTimelineChart(filteredRecords);
@@ -274,6 +337,7 @@ d3.csv('data/Cincinnati311.csv')
 
     renderServiceTypeList();
     leafletMap = new LeafletMap({ parentElement: '#my-map' }, allRecords);
+    leafletMap.setHighlightedRecords(selectedBarRecords);
     applyFiltersAndRender();
 
   })
