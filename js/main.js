@@ -120,10 +120,10 @@ function getVisibleRecords() {
   return interactionFilteredRecords || filteredRecords;
 }
 
-function renderViews({ rerenderTimeline = false, timelineData = null, rerenderBars = true } = {}) {
+function renderViews({ rerenderMap = true, rerenderTimeline = false, timelineData = null, rerenderBars = true } = {}) {
   const visibleRecords = getVisibleRecords();
 
-  if (leafletMap) {
+  if (rerenderMap && leafletMap) {
     leafletMap.setData(visibleRecords);
   }
   if (rerenderBars) {
@@ -140,7 +140,7 @@ function renderViews({ rerenderTimeline = false, timelineData = null, rerenderBa
 function applyFiltersAndRender() {
   filteredRecords = allRecords.filter((d) => activeServiceTypes.has(d.SR_TYPE));
   interactionFilteredRecords = null;
-  renderViews({ rerenderTimeline: true, timelineData: filteredRecords, rerenderBars: true });
+  renderViews({ rerenderMap: true, rerenderTimeline: true, timelineData: filteredRecords, rerenderBars: true });
 }
 
 function applySearchVisibility(searchValue) {
@@ -206,7 +206,9 @@ function renderServiceTypeList() {
 
 dispatcher.on("filterData.main", function (filteredData, source) {
   interactionFilteredRecords = Array.isArray(filteredData) ? filteredData : null;
+  const shouldRerenderMap = source !== "map_brush" || interactionFilteredRecords === null;
   renderViews({
+    rerenderMap: shouldRerenderMap,
     rerenderTimeline: source !== "timeline_brush",
     timelineData: getVisibleRecords(),
     rerenderBars: source !== "bar_brush"
@@ -270,7 +272,7 @@ d3.csv('data/Cincinnati311.csv')
     ];
 
     allRecords = data
-      .map(d => {
+      .map((d, i) => {
         const row = {};
         allowedFields.forEach(field => {
           row[field] = d[field] ?? '';
@@ -278,6 +280,8 @@ d3.csv('data/Cincinnati311.csv')
 
         row.LATITUDE = +(d.LATITUDE ?? d.latitude);
         row.LONGITUDE = +(d.LONGITUDE ?? d.longitude);
+        row.ID = d.ID ?? d.id ?? i;
+        row._index = i;
         row.SR_TYPE = normalizeTypeCode(d.SR_TYPE);
         row.SR_TYPE_DESC = cleanText(d.SR_TYPE_DESC, row.SR_TYPE);
 

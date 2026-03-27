@@ -48,11 +48,6 @@
   stroke-dasharray: 2 4;
 }
 
-.brush .selection {
-  fill: orange;
-  fill-opacity: 0.3;
-}
-
 .timeline-grid path {
   stroke: none;
 }
