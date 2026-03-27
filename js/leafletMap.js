@@ -139,10 +139,6 @@ class LeafletMap {
     vis.theMap.on("zoomend", function(){
       vis.updateVis();
     });
-    dispatcher.on("filterData.map", function(filteredData) {
-      vis.updateBrushedData(filteredData);
-      vis.updateVis();
-    });
   }
 
   updateVis() {
@@ -184,23 +180,21 @@ class LeafletMap {
     }
 
     vis.Dots
-      .attr("fill", d => vis.getDotFill(d))
-      .attr("stroke", d => (vis.isHighlightedRecord(d) ? "#0f172a" : "black"))
-      .attr("stroke-width", d => (vis.isHighlightedRecord(d) ? 1.5 : 1))
-      .attr("opacity", d => {
+      .attr("display", d => {
         if (!vis.hasHighlightedRecords()) {
-          return 0.9;
+          return null;
         }
-        return vis.isHighlightedRecord(d) ? 1 : 0.18;
+        return vis.isHighlightedRecord(d) ? null : "none";
       })
-      .attr("r", d => (vis.isHighlightedRecord(d) ? 6 : 3));
+      .attr("fill", d => vis.getDotFill(d))
+      .attr("stroke", "black")
+      .attr("stroke-width", 1)
+      .attr("opacity", 0.9)
+      .attr("r", 3);
   }
 
   getDotFill(d) {
     let vis = this;
-    if (vis.isHighlightedRecord(d)) {
-      return "#ffd166";
-    }
     return vis.getColor(d);
   }
 
@@ -257,9 +251,9 @@ class LeafletMap {
         d3.select(this).transition()
           .duration('150')
           .attr("fill", vis.getDotFill(d))
-          .attr('r', vis.isHighlightedRecord(d) ? 6 : 3)
-          .attr('opacity', vis.hasHighlightedRecords() && !vis.isHighlightedRecord(d) ? 0.18 : 0.9)
-          .attr('stroke-width', vis.isHighlightedRecord(d) ? 1.5 : 1);
+          .attr('r', 3)
+          .attr('opacity', 0.9)
+          .attr('stroke-width', 1);
 
         d3.select('#tooltip').style('opacity', 0);
       });
@@ -344,9 +338,9 @@ class LeafletMap {
           d3.select(this).transition() //D3 selects the object we have moused over in order to perform operations on it
             .duration('150') //how long we are transitioning between the two states (works like keyframes)
             .attr("fill", d => vis.getDotFill(d)) //change the fill back to original color
-            .attr('r', d => vis.isHighlightedRecord(d) ? 6 : 3)
-            .attr('opacity', d => vis.hasHighlightedRecords() && !vis.isHighlightedRecord(d) ? 0.18 : 0.9)
-            .attr('stroke-width', d => vis.isHighlightedRecord(d) ? 1.5 : 1)
+            .attr('r', 3)
+            .attr('opacity', 0.9)
+            .attr('stroke-width', 1)
 
           d3.select('#tooltip').style('opacity', 0);//turn off the tooltip
 

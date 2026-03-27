@@ -63,6 +63,7 @@ let allRecords = [];
 let filteredRecords = [];
 let serviceTypeOptions = [];
 let activeServiceTypes = new Set();
+let brushedTimelineRecords = null;
 let selectedBarRecords = [];
 let selectedBarState = null;
 
@@ -173,8 +174,17 @@ function handleBarSelection(selection) {
   }
 }
 
-function applyFiltersAndRender() {
-  filteredRecords = allRecords.filter((d) => activeServiceTypes.has(d.SR_TYPE));
+function applyFiltersAndRender(options = {}) {
+  const shouldRenderTimeline = options.renderTimeline !== false;
+  const serviceTypeFilteredRecords = allRecords.filter((d) => activeServiceTypes.has(d.SR_TYPE));
+
+  if (Array.isArray(brushedTimelineRecords)) {
+    const brushedSet = new Set(brushedTimelineRecords);
+    filteredRecords = serviceTypeFilteredRecords.filter((d) => brushedSet.has(d));
+  } else {
+    filteredRecords = serviceTypeFilteredRecords;
+  }
+
   syncSelectedBarRecordsToCurrentFilter();
 
   if (leafletMap) {
@@ -183,12 +193,17 @@ function applyFiltersAndRender() {
   }
   renderAllBarCharts(filteredRecords, handleBarSelection, getSelectedBarChartState());
 
-  if (typeof renderTimelineChart === "function") {
-    renderTimelineChart(filteredRecords);
+  if (shouldRenderTimeline && typeof renderTimelineChart === "function") {
+    renderTimelineChart(serviceTypeFilteredRecords);
   }
 
   updateFilterSummary();
 }
+
+dispatcher.on("filterData.main", function(filteredData) {
+  brushedTimelineRecords = Array.isArray(filteredData) ? filteredData : null;
+  applyFiltersAndRender({ renderTimeline: false });
+});
 
 function applySearchVisibility(searchValue) {
   const query = cleanText(searchValue).toUpperCase();
