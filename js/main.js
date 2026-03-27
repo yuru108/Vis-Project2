@@ -61,6 +61,7 @@ svg
 let leafletMap;
 let allRecords = [];
 let filteredRecords = [];
+let interactionFilteredRecords = null;
 let serviceTypeOptions = [];
 let activeServiceTypes = new Set();
 
@@ -107,24 +108,36 @@ function getPotholeDefaultKeys() {
 function updateFilterSummary() {
   const summary = d3.select("#filter-summary");
   if (summary.empty()) return;
+
+  const visibleRecords = getVisibleRecords();
+  const interactionSuffix = interactionFilteredRecords ? " (timeline brush active)" : "";
   summary.text(
-    `${filteredRecords.length.toLocaleString()} visible requests from ${activeServiceTypes.size.toLocaleString()} selected service types`
+    `${visibleRecords.length.toLocaleString()} visible requests from ${activeServiceTypes.size.toLocaleString()} selected service types${interactionSuffix}`
   );
 }
 
-function applyFiltersAndRender() {
-  filteredRecords = allRecords.filter((d) => activeServiceTypes.has(d.SR_TYPE));
+function getVisibleRecords() {
+  return interactionFilteredRecords || filteredRecords;
+}
 
+function renderViews({ rerenderTimeline = false } = {}) {
+  const visibleRecords = getVisibleRecords();
   if (leafletMap) {
-    leafletMap.setData(filteredRecords);
+    leafletMap.setData(visibleRecords);
   }
-  renderAllBarCharts(filteredRecords);
+  renderAllBarCharts(visibleRecords);
 
-  if (typeof renderTimelineChart === "function") {
+  if (rerenderTimeline && typeof renderTimelineChart === "function") {
     renderTimelineChart(filteredRecords);
   }
 
   updateFilterSummary();
+}
+
+function applyFiltersAndRender() {
+  filteredRecords = allRecords.filter((d) => activeServiceTypes.has(d.SR_TYPE));
+  interactionFilteredRecords = null;
+  renderViews({ rerenderTimeline: true });
 }
 
 function applySearchVisibility(searchValue) {
@@ -187,6 +200,11 @@ function renderServiceTypeList() {
     applySearchVisibility(this.value);
   });
 }
+
+dispatcher.on("filterData.main", function (filteredData, source) {
+  interactionFilteredRecords = Array.isArray(filteredData) ? filteredData : null;
+  renderViews({ rerenderTimeline: source !== "timeline_brush" });
+});
 
 // **This Needs To Be Moved To A Separate File**
 

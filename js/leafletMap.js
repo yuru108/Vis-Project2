@@ -136,10 +136,6 @@ class LeafletMap {
     vis.theMap.on("zoomend", function(){
       vis.updateVis();
     });
-    dispatcher.on("filterData.map", function(filteredData) {
-      vis.updateBrushedData(filteredData);
-      vis.updateVis();
-    });
   }
 
   updateVis() {
