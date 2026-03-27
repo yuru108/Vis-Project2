@@ -110,7 +110,7 @@ function updateFilterSummary() {
   if (summary.empty()) return;
 
   const visibleRecords = getVisibleRecords();
-  const interactionSuffix = interactionFilteredRecords ? " (timeline brush active)" : "";
+  const interactionSuffix = interactionFilteredRecords ? " (brush filter active)" : "";
   summary.text(
     `${visibleRecords.length.toLocaleString()} visible requests from ${activeServiceTypes.size.toLocaleString()} selected service types${interactionSuffix}`
   );
@@ -120,15 +120,18 @@ function getVisibleRecords() {
   return interactionFilteredRecords || filteredRecords;
 }
 
-function renderViews({ rerenderTimeline = false } = {}) {
+function renderViews({ rerenderTimeline = false, timelineData = null, rerenderBars = true } = {}) {
   const visibleRecords = getVisibleRecords();
+
   if (leafletMap) {
     leafletMap.setData(visibleRecords);
   }
-  renderAllBarCharts(visibleRecords);
+  if (rerenderBars) {
+    renderAllBarCharts(visibleRecords);
+  }
 
   if (rerenderTimeline && typeof renderTimelineChart === "function") {
-    renderTimelineChart(filteredRecords);
+    renderTimelineChart(Array.isArray(timelineData) ? timelineData : filteredRecords);
   }
 
   updateFilterSummary();
@@ -137,7 +140,7 @@ function renderViews({ rerenderTimeline = false } = {}) {
 function applyFiltersAndRender() {
   filteredRecords = allRecords.filter((d) => activeServiceTypes.has(d.SR_TYPE));
   interactionFilteredRecords = null;
-  renderViews({ rerenderTimeline: true });
+  renderViews({ rerenderTimeline: true, timelineData: filteredRecords, rerenderBars: true });
 }
 
 function applySearchVisibility(searchValue) {
@@ -203,7 +206,11 @@ function renderServiceTypeList() {
 
 dispatcher.on("filterData.main", function (filteredData, source) {
   interactionFilteredRecords = Array.isArray(filteredData) ? filteredData : null;
-  renderViews({ rerenderTimeline: source !== "timeline_brush" });
+  renderViews({
+    rerenderTimeline: source !== "timeline_brush",
+    timelineData: getVisibleRecords(),
+    rerenderBars: source !== "bar_brush"
+  });
 });
 
 // **This Needs To Be Moved To A Separate File**

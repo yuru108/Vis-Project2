@@ -149,6 +149,44 @@ function renderStackedBarChart({ selector, data, groupAccessor, serviceTypes, co
   g.append("g")
     .attr("class", "axis")
     .call(d3.axisLeft(yScale).ticks(6).tickFormat(d3.format("d")));
+
+  const brush = d3.brushX().extent([[0, 0], [innerWidth, innerHeight]]).on("end", brushed);
+
+  g.append("g")
+    .attr("class", "brush")
+    .call(brush);
+
+  function brushed(event) {
+    if (typeof dispatcher === "undefined" || !dispatcher) {
+      return;
+    }
+
+    if (!event.selection) {
+      dispatcher.call("filterData", null, null, "bar_brush");
+      return;
+    }
+
+    const [x0, x1] = event.selection;
+    const selectedLabels = stackRows
+      .filter((row) => {
+        const x = xScale(row.label);
+        if (x == null) return false;
+        const start = x;
+        const end = x + xScale.bandwidth();
+        return end >= x0 && start <= x1;
+      })
+      .map((row) => row.label);
+
+    if (!selectedLabels.length) {
+      dispatcher.call("filterData", null, null, "bar_brush");
+      return;
+    }
+
+    const selectedSet = new Set(selectedLabels);
+    const brushedData = data.filter((d) => selectedSet.has(cleanCategoryValue(groupAccessor(d))));
+
+    dispatcher.call("filterData", null, brushedData, "bar_brush");
+  }
 }
 
 function renderServiceTypeLegend(serviceTypes, colorForType) {
