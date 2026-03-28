@@ -53,6 +53,22 @@
   background: rgba(255, 255, 255, 0.95);
 }
 
+.map-mode-toggle {
+  width: 100%;
+  border: 1px solid #c6c6c6;
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 13px;
+  font-weight: 600;
+  background: rgba(255, 255, 255, 0.95);
+  cursor: pointer;
+}
+
+.map-mode-toggle.is-brush-mode {
+  background: #ffe7d1;
+  border-color: #f59e0b;
+}
+
 .tooltip {
   position: absolute;
   background: white;
@@ -62,6 +78,11 @@
   pointer-events: none;
   opacity: 0;
   border-radius: 4px;
+}
+
+.brush .selection {
+  fill: orange;
+  fill-opacity: 0.3;
 }
 
 .bar-charts-section {

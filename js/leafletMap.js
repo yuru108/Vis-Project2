@@ -81,10 +81,16 @@ class LeafletMap {
     L.control.layers(baseMaps).addTo(vis.theMap);
     //if you stopped here, you would just have a map
 
-    //initialize svg for d3 to add to map
-    L.svg({clickable:true}).addTo(vis.theMap)// we have to make the svg layer clickable
-    vis.overlay = d3.select(vis.theMap.getPanes().overlayPane)
-    vis.svg = vis.overlay.select('svg').attr("pointer-events", "auto")
+    // Use a fixed SVG overlay in map container coordinates so brushing and points align.
+    vis.overlay = d3.select(vis.theMap.getPanes().overlayPane);
+    vis.svg = vis.overlay
+      .append("svg")
+      .attr("class", "custom-map-overlay")
+      .style("position", "absolute")
+      .style("top", "0px")
+      .style("left", "0px")
+      .style("pointer-events", "auto");
+    vis.updateOverlaySize();
     vis.missingGPS = vis.data.filter(d => !d.LATITUDE || !d.LONGITUDE).length;
     d3.select("#missing-data")
       .text(`${vis.missingGPS} requests could not be mapped because they have missing coordinates`);
@@ -102,6 +108,9 @@ class LeafletMap {
 
     vis.colorMode = "response";//Default color mode
     vis.isFiltered = false; // Track if data is currently filtered
+    vis.interactionMode = "zoom";
+    vis.mapBrushSelection = null;
+    vis.suppressBrushDispatch = false;
 
     //Use the colors
     d3.select("#color-select").on("change", function() {
@@ -134,11 +143,170 @@ class LeafletMap {
                         .attr("r", d=> 3);  // --- TO DO- want to make radius proportional to earthquake size? 
     vis.updateDots();
     vis.addHoverEvents(vis.Dots);
+    vis.initInteractionControls();
+    vis.initMapBrush();
+    vis.setInteractionMode("zoom");
     
     //handler here for updating the map, as you zoom in and out           
     vis.theMap.on("zoomend", function(){
       vis.updateVis();
+      vis.applyMapBrushExtent();
     });
+    vis.theMap.on("moveend", function(){
+      vis.updateVis();
+      vis.applyMapBrushExtent();
+    });
+    vis.theMap.on("resize", function(){
+      vis.updateOverlaySize();
+      vis.updateVis();
+      vis.applyMapBrushExtent();
+    });
+  }
+
+  updateOverlaySize() {
+    let vis = this;
+    const size = vis.theMap.getSize();
+    vis.svg
+      .attr("width", size.x)
+      .attr("height", size.y)
+      .attr("viewBox", `0 0 ${size.x} ${size.y}`);
+  }
+
+  initInteractionControls() {
+    let vis = this;
+    vis.modeToggleButton = d3.select("#map-mode-toggle");
+    if (vis.modeToggleButton.empty()) {
+      return;
+    }
+
+    vis.modeToggleButton.on("click", function() {
+      const nextMode = vis.interactionMode === "zoom" ? "brush" : "zoom";
+      vis.setInteractionMode(nextMode);
+    });
+    vis.updateModeButton();
+  }
+
+  initMapBrush() {
+    let vis = this;
+    vis.brushLayer = vis.svg.append("g").attr("class", "brush map-brush").style("display", "none");
+    vis.mapBrush = d3.brush().on("end", (event) => vis.handleMapBrush(event));
+    vis.applyMapBrushExtent();
+  }
+
+  applyMapBrushExtent() {
+    let vis = this;
+    if (!vis.mapBrush || !vis.brushLayer) {
+      return;
+    }
+
+    vis.updateOverlaySize();
+    const size = vis.theMap.getSize();
+    vis.mapBrush.extent([[0, 0], [size.x, size.y]]);
+    vis.brushLayer.call(vis.mapBrush);
+
+    if (vis.mapBrushSelection) {
+      vis.suppressBrushDispatch = true;
+      vis.brushLayer.call(vis.mapBrush.move, vis.mapBrushSelection);
+      vis.suppressBrushDispatch = false;
+    }
+  }
+
+  clearMapBrushSelection() {
+    let vis = this;
+    vis.mapBrushSelection = null;
+    if (!vis.brushLayer || !vis.mapBrush) {
+      return;
+    }
+
+    vis.suppressBrushDispatch = true;
+    vis.brushLayer.call(vis.mapBrush.move, null);
+    vis.suppressBrushDispatch = false;
+  }
+
+  disableMapNavigation() {
+    let vis = this;
+    vis.theMap.dragging.disable();
+    vis.theMap.scrollWheelZoom.disable();
+    vis.theMap.doubleClickZoom.disable();
+    vis.theMap.boxZoom.disable();
+    vis.theMap.keyboard.disable();
+    if (vis.theMap.touchZoom) {
+      vis.theMap.touchZoom.disable();
+    }
+  }
+
+  enableMapNavigation() {
+    let vis = this;
+    vis.theMap.dragging.enable();
+    vis.theMap.scrollWheelZoom.enable();
+    vis.theMap.doubleClickZoom.enable();
+    vis.theMap.boxZoom.enable();
+    vis.theMap.keyboard.enable();
+    if (vis.theMap.touchZoom) {
+      vis.theMap.touchZoom.enable();
+    }
+  }
+
+  updateModeButton() {
+    let vis = this;
+    if (!vis.modeToggleButton || vis.modeToggleButton.empty()) {
+      return;
+    }
+
+    const isBrush = vis.interactionMode === "brush";
+    vis.modeToggleButton
+      .text(isBrush ? "Switch To Zoom" : "Switch To Brush")
+      .attr("aria-pressed", isBrush ? "true" : "false")
+      .classed("is-brush-mode", isBrush);
+  }
+
+  setInteractionMode(mode) {
+    let vis = this;
+    const previousMode = vis.interactionMode;
+    const targetMode = mode === "brush" ? "brush" : "zoom";
+    vis.interactionMode = targetMode;
+
+    if (targetMode === "brush") {
+      vis.disableMapNavigation();
+      vis.applyMapBrushExtent();
+      vis.brushLayer.style("display", null);
+    } else {
+      vis.enableMapNavigation();
+      vis.clearMapBrushSelection();
+      vis.brushLayer.style("display", "none");
+      if (previousMode === "brush" && typeof dispatcher !== "undefined" && dispatcher) {
+        dispatcher.call("filterData", null, null, "map_brush");
+      }
+    }
+
+    vis.updateModeButton();
+  }
+
+  handleMapBrush(event) {
+    let vis = this;
+    if (vis.suppressBrushDispatch || typeof dispatcher === "undefined" || !dispatcher) {
+      return;
+    }
+
+    if (!event.selection) {
+      vis.mapBrushSelection = null;
+      dispatcher.call("filterData", null, null, "map_brush");
+      return;
+    }
+
+    const [[x0, y0], [x1, y1]] = event.selection;
+    vis.mapBrushSelection = event.selection;
+
+    const selectedData = vis.data.filter((d) => {
+      const lat = Number(d.LATITUDE);
+      const lon = Number(d.LONGITUDE);
+      if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+        return false;
+      }
+      const point = vis.theMap.latLngToContainerPoint([lat, lon]);
+      return point.x >= x0 && point.x <= x1 && point.y >= y0 && point.y <= y1;
+    });
+    dispatcher.call("filterData", null, selectedData, "map_brush");
   }
 
   updateVis() {
@@ -151,8 +319,8 @@ class LeafletMap {
    
    //redraw based on new zoom- need to recalculate on-screen position
     vis.Dots
-      .attr("cx", d => vis.theMap.latLngToLayerPoint([d.LATITUDE,d.LONGITUDE]).x)
-      .attr("cy", d => vis.theMap.latLngToLayerPoint([d.LATITUDE,d.LONGITUDE]).y);
+      .attr("cx", d => vis.theMap.latLngToContainerPoint([d.LATITUDE,d.LONGITUDE]).x)
+      .attr("cy", d => vis.theMap.latLngToContainerPoint([d.LATITUDE,d.LONGITUDE]).y);
 
     vis.applyDotStyles();
 
@@ -250,10 +418,8 @@ class LeafletMap {
       .on('mouseleave', function(event,d) {
         d3.select(this).transition()
           .duration('150')
-          .attr("fill", vis.getDotFill(d))
-          .attr('r', 3)
-          .attr('opacity', 0.9)
-          .attr('stroke-width', 1);
+          .attr("fill", d => vis.getColor(d))
+          .attr('r', 3);
 
         d3.select('#tooltip').style('opacity', 0);
       });
@@ -264,6 +430,9 @@ class LeafletMap {
   setData(newData) {
     let vis = this;
     vis.data = Array.isArray(newData) ? newData : [];
+    if (vis.interactionMode === "brush" && vis.mapBrushSelection) {
+      vis.clearMapBrushSelection();
+    }
     vis.missingGPS = vis.data.filter(d => !d.LATITUDE || !d.LONGITUDE).length;
     d3.select("#missing-data")
       .text(`${vis.missingGPS} requests could not be mapped because they have missing coordinates`);
@@ -364,15 +533,15 @@ class LeafletMap {
     );
 
     vis.Dots = vis.svg.selectAll('circle')
-      .data(valid, d => d.ID ?? d._index)
+      .data(valid)
 
     vis.Dots = vis.Dots.join(
       enter => enter.append("circle"),
       update => update,
       exit => exit.remove()
     )
-      .attr("cx", d => vis.theMap.latLngToLayerPoint([Number(d.LATITUDE), Number(d.LONGITUDE)]).x)
-      .attr("cy", d => vis.theMap.latLngToLayerPoint([Number(d.LATITUDE), Number(d.LONGITUDE)]).y)
+      .attr("cx", d => vis.theMap.latLngToContainerPoint([Number(d.LATITUDE), Number(d.LONGITUDE)]).x)
+      .attr("cy", d => vis.theMap.latLngToContainerPoint([Number(d.LATITUDE), Number(d.LONGITUDE)]).y)
       .attr("stroke", "black")
       .attr("r", 3)
       .style("cursor", "default");
