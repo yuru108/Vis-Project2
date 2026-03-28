@@ -61,6 +61,7 @@ svg
 let leafletMap;
 let allRecords = [];
 let filteredRecords = [];
+let interactionFilteredRecords = null;
 let serviceTypeOptions = [];
 let activeServiceTypes = new Set();
 
@@ -107,24 +108,37 @@ function getPotholeDefaultKeys() {
 function updateFilterSummary() {
   const summary = d3.select("#filter-summary");
   if (summary.empty()) return;
+
+  const visibleRecords = getVisibleRecords();
+  const interactionSuffix = interactionFilteredRecords ? " (brush filter active)" : "";
   summary.text(
-    `${filteredRecords.length.toLocaleString()} visible requests from ${activeServiceTypes.size.toLocaleString()} selected service types`
+    `${visibleRecords.length.toLocaleString()} visible requests from ${activeServiceTypes.size.toLocaleString()} selected service types${interactionSuffix}`
   );
+}
+
+function getVisibleRecords() {
+  return interactionFilteredRecords || filteredRecords;
+}
+
+function renderViews({ rerenderMap = true, rerenderTimeline = false, timelineData = null } = {}) {
+  const visibleRecords = getVisibleRecords();
+
+  if (rerenderMap && leafletMap) {
+    leafletMap.setData(visibleRecords);
+  }
+  renderAllBarCharts(visibleRecords);
+
+  if (rerenderTimeline && typeof renderTimelineChart === "function") {
+    renderTimelineChart(Array.isArray(timelineData) ? timelineData : filteredRecords);
+  }
+
+  updateFilterSummary();
 }
 
 function applyFiltersAndRender() {
   filteredRecords = allRecords.filter((d) => activeServiceTypes.has(d.SR_TYPE));
-
-  if (leafletMap) {
-    leafletMap.setData(filteredRecords);
-  }
-  renderAllBarCharts(filteredRecords);
-
-  if (typeof renderTimelineChart === "function") {
-    renderTimelineChart(filteredRecords);
-  }
-
-  updateFilterSummary();
+  interactionFilteredRecords = null;
+  renderViews({ rerenderMap: true, rerenderTimeline: true, timelineData: filteredRecords });
 }
 
 function applySearchVisibility(searchValue) {
@@ -188,6 +202,16 @@ function renderServiceTypeList() {
   });
 }
 
+dispatcher.on("filterData.main", function (filteredData, source) {
+  interactionFilteredRecords = Array.isArray(filteredData) ? filteredData : null;
+  const shouldRerenderMap = source !== "map_brush" || interactionFilteredRecords === null;
+  renderViews({
+    rerenderMap: shouldRerenderMap,
+    rerenderTimeline: source !== "timeline_brush",
+    timelineData: getVisibleRecords()
+  });
+});
+
 // **This Needs To Be Moved To A Separate File**
 
 // Load 311 service requests, then normalize and filter records before mapping.
@@ -245,7 +269,7 @@ d3.csv('data/Cincinnati311.csv')
     ];
 
     allRecords = data
-      .map(d => {
+      .map((d, i) => {
         const row = {};
         allowedFields.forEach(field => {
           row[field] = d[field] ?? '';
@@ -253,6 +277,8 @@ d3.csv('data/Cincinnati311.csv')
 
         row.LATITUDE = +(d.LATITUDE ?? d.latitude);
         row.LONGITUDE = +(d.LONGITUDE ?? d.longitude);
+        row.ID = d.ID ?? d.id ?? i;
+        row._index = i;
         row.SR_TYPE = normalizeTypeCode(d.SR_TYPE);
         row.SR_TYPE_DESC = cleanText(d.SR_TYPE_DESC, row.SR_TYPE);
 

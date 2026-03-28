@@ -205,7 +205,7 @@ function renderTimeline(data, originalData, chartContainer, timelineTooltip) {
     }
 
     if (!event.selection) {
-      dispatcher.call("filterData", null, null);
+      dispatcher.call("filterData", null, null, "timeline_brush");
       return;
     }
 
@@ -217,6 +217,6 @@ function renderTimeline(data, originalData, chartContainer, timelineTooltip) {
       return date >= startDate && date <= endDate;
     });
 
-    dispatcher.call("filterData", null, filteredData);
+    dispatcher.call("filterData", null, filteredData, "timeline_brush");
   }
 }
