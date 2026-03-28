@@ -120,15 +120,13 @@ function getVisibleRecords() {
   return interactionFilteredRecords || filteredRecords;
 }
 
-function renderViews({ rerenderMap = true, rerenderTimeline = false, timelineData = null, rerenderBars = true } = {}) {
+function renderViews({ rerenderMap = true, rerenderTimeline = false, timelineData = null } = {}) {
   const visibleRecords = getVisibleRecords();
 
   if (rerenderMap && leafletMap) {
     leafletMap.setData(visibleRecords);
   }
-  if (rerenderBars) {
-    renderAllBarCharts(visibleRecords);
-  }
+  renderAllBarCharts(visibleRecords);
 
   if (rerenderTimeline && typeof renderTimelineChart === "function") {
     renderTimelineChart(Array.isArray(timelineData) ? timelineData : filteredRecords);
@@ -140,7 +138,7 @@ function renderViews({ rerenderMap = true, rerenderTimeline = false, timelineDat
 function applyFiltersAndRender() {
   filteredRecords = allRecords.filter((d) => activeServiceTypes.has(d.SR_TYPE));
   interactionFilteredRecords = null;
-  renderViews({ rerenderMap: true, rerenderTimeline: true, timelineData: filteredRecords, rerenderBars: true });
+  renderViews({ rerenderMap: true, rerenderTimeline: true, timelineData: filteredRecords });
 }
 
 function applySearchVisibility(searchValue) {
@@ -210,8 +208,7 @@ dispatcher.on("filterData.main", function (filteredData, source) {
   renderViews({
     rerenderMap: shouldRerenderMap,
     rerenderTimeline: source !== "timeline_brush",
-    timelineData: getVisibleRecords(),
-    rerenderBars: source !== "bar_brush"
+    timelineData: getVisibleRecords()
   });
 });
 
