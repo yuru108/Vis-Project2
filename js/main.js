@@ -117,8 +117,9 @@ function getPotholeDefaultKeys() {
 function updateFilterSummary() {
   const summary = d3.select("#filter-summary");
   if (summary.empty()) return;
+  const visibleRecords = getCurrentDisplayRecords();
   summary.text(
-    `${filteredRecords.length.toLocaleString()} visible requests from ${activeServiceTypes.size.toLocaleString()} selected service types`
+    `${visibleRecords.length.toLocaleString()} visible requests from ${activeServiceTypes.size.toLocaleString()} selected service types`
   );
 }
 
@@ -151,6 +152,10 @@ function syncSelectedBarRecordsToCurrentFilter() {
   }
 }
 
+function getCurrentDisplayRecords() {
+  return selectedBarState ? selectedBarRecords : filteredRecords;
+}
+
 function handleBarSelection(selection) {
   const clickedSameBar =
     selectedBarState &&
@@ -159,19 +164,13 @@ function handleBarSelection(selection) {
 
   if (clickedSameBar) {
     selectedBarState = null;
-    selectedBarRecords = [];
   } else {
     selectedBarState = {
       chartId: selection.chartId,
       label: selection.label
     };
-    selectedBarRecords = Array.isArray(selection.records) ? selection.records : [];
   }
-
-  renderAllBarCharts(filteredRecords, handleBarSelection, getSelectedBarChartState());
-  if (leafletMap) {
-    leafletMap.setHighlightedRecords(selectedBarRecords);
-  }
+  applyFiltersAndRender();
 }
 
 function applyFiltersAndRender(options = {}) {
@@ -186,15 +185,16 @@ function applyFiltersAndRender(options = {}) {
   }
 
   syncSelectedBarRecordsToCurrentFilter();
+  const displayRecords = getCurrentDisplayRecords();
 
   if (leafletMap) {
-    leafletMap.setData(filteredRecords);
+    leafletMap.setData(displayRecords);
     leafletMap.setHighlightedRecords(selectedBarRecords);
   }
   renderAllBarCharts(filteredRecords, handleBarSelection, getSelectedBarChartState());
 
   if (shouldRenderTimeline && typeof renderTimelineChart === "function") {
-    renderTimelineChart(serviceTypeFilteredRecords);
+    renderTimelineChart(displayRecords);
   }
 
   updateFilterSummary();
