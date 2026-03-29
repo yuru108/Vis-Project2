@@ -10,6 +10,8 @@ class LeafletMap {
       parentElement: _config.parentElement,
     }
     this.data = _data;
+    this.highlightedData = [];
+    this.highlightedSet = new Set();
     this.initVis();
   }
   
@@ -79,10 +81,16 @@ class LeafletMap {
     L.control.layers(baseMaps).addTo(vis.theMap);
     //if you stopped here, you would just have a map
 
-    //initialize svg for d3 to add to map
-    L.svg({clickable:true}).addTo(vis.theMap)// we have to make the svg layer clickable
-    vis.overlay = d3.select(vis.theMap.getPanes().overlayPane)
-    vis.svg = vis.overlay.select('svg').attr("pointer-events", "auto")
+    // Use a fixed SVG overlay in map container coordinates so brushing and points align.
+    vis.overlay = d3.select(vis.theMap.getPanes().overlayPane);
+    vis.svg = vis.overlay
+      .append("svg")
+      .attr("class", "custom-map-overlay")
+      .style("position", "absolute")
+      .style("top", "0px")
+      .style("left", "0px")
+      .style("pointer-events", "auto");
+    vis.updateOverlaySize();
     vis.missingGPS = vis.data.filter(d => !d.LATITUDE || !d.LONGITUDE).length;
     d3.select("#missing-data")
       .text(`${vis.missingGPS} requests could not be mapped because they have missing coordinates`);
@@ -115,6 +123,7 @@ class LeafletMap {
           .duration(400)
           .attr("fill", d => vis.getColor(d));
       }
+      vis.applyDotStyles();
     });
     
     //these are the city locations, displayed as a set of dots 
@@ -143,6 +152,24 @@ class LeafletMap {
       vis.updateVis();
       vis.applyMapBrushExtent();
     });
+    vis.theMap.on("moveend", function(){
+      vis.updateVis();
+      vis.applyMapBrushExtent();
+    });
+    vis.theMap.on("resize", function(){
+      vis.updateOverlaySize();
+      vis.updateVis();
+      vis.applyMapBrushExtent();
+    });
+  }
+
+  updateOverlaySize() {
+    let vis = this;
+    const size = vis.theMap.getSize();
+    vis.svg
+      .attr("width", size.x)
+      .attr("height", size.y)
+      .attr("viewBox", `0 0 ${size.x} ${size.y}`);
   }
 
   initInteractionControls() {
@@ -172,6 +199,7 @@ class LeafletMap {
       return;
     }
 
+    vis.updateOverlaySize();
     const size = vis.theMap.getSize();
     vis.mapBrush.extent([[0, 0], [size.x, size.y]]);
     vis.brushLayer.call(vis.mapBrush);
@@ -275,7 +303,7 @@ class LeafletMap {
       if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
         return false;
       }
-      const point = vis.theMap.latLngToLayerPoint([lat, lon]);
+      const point = vis.theMap.latLngToContainerPoint([lat, lon]);
       return point.x >= x0 && point.x <= x1 && point.y >= y0 && point.y <= y1;
     });
     dispatcher.call("filterData", null, selectedData, "map_brush");
@@ -291,11 +319,51 @@ class LeafletMap {
    
    //redraw based on new zoom- need to recalculate on-screen position
     vis.Dots
-      .attr("cx", d => vis.theMap.latLngToLayerPoint([d.LATITUDE,d.LONGITUDE]).x)
-      .attr("cy", d => vis.theMap.latLngToLayerPoint([d.LATITUDE,d.LONGITUDE]).y)
-      .attr("fill", d => vis.getColor(d))  //---- TO DO- color by magnitude 
-      .attr("r", 3) ; 
+      .attr("cx", d => vis.theMap.latLngToContainerPoint([d.LATITUDE,d.LONGITUDE]).x)
+      .attr("cy", d => vis.theMap.latLngToContainerPoint([d.LATITUDE,d.LONGITUDE]).y);
 
+    vis.applyDotStyles();
+
+  }
+
+  setHighlightedRecords(records) {
+    let vis = this;
+    vis.highlightedData = Array.isArray(records) ? records : [];
+    vis.highlightedSet = new Set(vis.highlightedData);
+    vis.applyDotStyles();
+  }
+
+  hasHighlightedRecords() {
+    return this.highlightedSet && this.highlightedSet.size > 0;
+  }
+
+  isHighlightedRecord(d) {
+    return this.hasHighlightedRecords() && this.highlightedSet.has(d);
+  }
+
+  applyDotStyles() {
+    let vis = this;
+    if (!vis.Dots) {
+      return;
+    }
+
+    vis.Dots
+      .attr("display", d => {
+        if (!vis.hasHighlightedRecords()) {
+          return null;
+        }
+        return vis.isHighlightedRecord(d) ? null : "none";
+      })
+      .attr("fill", d => vis.getDotFill(d))
+      .attr("stroke", "black")
+      .attr("stroke-width", 1)
+      .attr("opacity", 0.9)
+      .attr("r", 3);
+  }
+
+  getDotFill(d) {
+    let vis = this;
+    return vis.getColor(d);
   }
 
   updateColorScales() {
@@ -312,7 +380,7 @@ class LeafletMap {
     let vis = this;
 
     vis.Dots = vis.svg.selectAll('circle')
-      .data(vis.data.filter(d => d.LATITUDE && d.LONGITUDE), d => d.ID ?? d._index)
+      .data(vis.data.filter(d => d.LATITUDE && d.LONGITUDE))
       .join(
         enter => enter
           .append('circle')
@@ -347,7 +415,7 @@ class LeafletMap {
           .style('left', (event.pageX + 10) + 'px')
           .style('top', (event.pageY + 10) + 'px');
       })
-      .on('mouseleave', function() {
+      .on('mouseleave', function(event,d) {
         d3.select(this).transition()
           .duration('150')
           .attr("fill", d => vis.getColor(d))
@@ -369,6 +437,10 @@ class LeafletMap {
     d3.select("#missing-data")
       .text(`${vis.missingGPS} requests could not be mapped because they have missing coordinates`);
     vis.updateColorScales();
+    if (vis.hasHighlightedRecords()) {
+      vis.highlightedData = vis.highlightedData.filter((d) => vis.data.includes(d));
+      vis.highlightedSet = new Set(vis.highlightedData);
+    }
     vis.updateDots();
   }
 
@@ -434,8 +506,10 @@ class LeafletMap {
       .on('mouseleave', function() { //function to add mouseover event
           d3.select(this).transition() //D3 selects the object we have moused over in order to perform operations on it
             .duration('150') //how long we are transitioning between the two states (works like keyframes)
-            .attr("fill", d => vis.getColor(d)) //change the fill back to original color
-            .attr('r', 3) //change radius
+            .attr("fill", d => vis.getDotFill(d)) //change the fill back to original color
+            .attr('r', 3)
+            .attr('opacity', 0.9)
+            .attr('stroke-width', 1)
 
           d3.select('#tooltip').style('opacity', 0);//turn off the tooltip
 
@@ -459,20 +533,20 @@ class LeafletMap {
     );
 
     vis.Dots = vis.svg.selectAll('circle')
-      .data(valid, d => d.ID ?? d._index)
+      .data(valid)
 
     vis.Dots = vis.Dots.join(
       enter => enter.append("circle"),
       update => update,
       exit => exit.remove()
     )
-      .attr("cx", d => vis.theMap.latLngToLayerPoint([Number(d.LATITUDE), Number(d.LONGITUDE)]).x)
-      .attr("cy", d => vis.theMap.latLngToLayerPoint([Number(d.LATITUDE), Number(d.LONGITUDE)]).y)
-      .attr("fill", d => vis.isFiltered ? vis.getColor(d) : "steelblue")
+      .attr("cx", d => vis.theMap.latLngToContainerPoint([Number(d.LATITUDE), Number(d.LONGITUDE)]).x)
+      .attr("cy", d => vis.theMap.latLngToContainerPoint([Number(d.LATITUDE), Number(d.LONGITUDE)]).y)
       .attr("stroke", "black")
       .attr("r", 3)
       .style("cursor", "default");
 
     vis.addHoverEvents(vis.Dots);
+    vis.applyDotStyles();
   }
 }

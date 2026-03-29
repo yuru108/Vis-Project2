@@ -12,7 +12,7 @@ function renderTimelineChart(data) {
 
   const parsed = timelineLastInput
     .map((d) => ({
-      ...d,
+      record: d,
       createdDate: parseRequestDate(d.DATE_CREATED || d.DATE_TIME_RECEIVED),
     }))
     .filter((d) => d.createdDate instanceof Date && !Number.isNaN(d.createdDate.getTime()));
@@ -254,7 +254,7 @@ function renderTimeline(data, originalData, chartContainer, timelineTooltip) {
     const filteredData = originalData.filter((d) => {
       const date = d.createdDate;
       return date >= startDate && date <= endDate;
-    });
+    }).map((d) => d.record);
 
     dispatcher.call("filterData", null, filteredData, "timeline_brush");
   }
