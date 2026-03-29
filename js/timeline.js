@@ -199,6 +199,45 @@ function renderTimeline(data, originalData, chartContainer, timelineTooltip) {
 
   g.append("g").attr("class", "brush").call(brush);
 
+  let isPlaying = false;
+  let interval;
+
+  d3.select("#play-timeline")
+    .on("click", function() {
+
+      if (!isPlaying) {
+        isPlaying = true;
+        d3.select(this).text("Pause");
+        window.playTimeline = play;
+        interval = window.playTimeline();
+      } else {
+        isPlaying = false;
+        d3.select(this).text("Play");
+        clearInterval(interval);
+      }
+    });
+
+  function play() {
+    let step = 20;
+    let current = 0;
+
+    let interval = setInterval(() => {
+      if (current > innerWidth) {
+        clearInterval(interval);
+        isPlaying = false;
+        d3.select("#play-timeline").text("Play");
+        return;
+      }
+
+      g.select(".brush")
+        .call(brush.move, [current, current + 80]);
+
+      current += step;
+    }, 100);
+
+    return interval;
+  }
+
   function brushed(event) {
     if (typeof dispatcher === "undefined" || !dispatcher) {
       return;
