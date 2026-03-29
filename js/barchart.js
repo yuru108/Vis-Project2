@@ -200,15 +200,26 @@ function renderServiceTypeLegend(serviceTypes, colorForType) {
 
   legendContainer.selectAll("*").remove();
 
+  // Create a map of service type codes to their common names
+  const typeToLabel = new Map();
+  if (typeof serviceTypeOptions !== "undefined" && Array.isArray(serviceTypeOptions)) {
+    serviceTypeOptions.forEach((option) => {
+      typeToLabel.set(option.key, option.label);
+    });
+  }
+
   legendContainer
     .selectAll(".service-type-legend-item")
     .data(serviceTypes, (d) => d)
     .join("div")
     .attr("class", "service-type-legend-item")
-    .html((type) => `
+    .html((type) => {
+      const displayLabel = typeToLabel.get(type) || type;
+      return `
       <div class="service-type-legend-swatch" style="background-color: ${colorForType(type)}"></div>
-      <span>${type}</span>
-    `);
+      <span>${displayLabel}</span>
+    `;
+    });
 }
 
 function renderAllBarCharts(data, onBarSelect, selectedState = {}) {
