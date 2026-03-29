@@ -78,7 +78,38 @@ class LeafletMap {
       "Thunderforest": vis.thOut_layer,
       "Stamen Terrain": vis.st_layer
     };
-    L.control.layers(baseMaps).addTo(vis.theMap);
+
+    // Initialize heatmap layer with data if library is loaded
+    if (typeof L !== 'undefined' && L.heatLayer) {
+      vis.heatmapData = vis.data
+        .filter(d => d.LATITUDE && d.LONGITUDE)
+        .map(d => [parseFloat(d.LATITUDE), parseFloat(d.LONGITUDE), 1]);
+      
+      vis.heatmapLayer = L.heatLayer(vis.heatmapData, {
+        radius: 25,
+        blur: 15,
+        maxZoom: 17,
+        max: 1.0,
+        gradient: {
+          0.0: '#0099ff',
+          0.25: '#00ff00',
+          0.5: '#ffff00',
+          0.75: '#ff7700',
+          1.0: '#ff0000'
+        }
+      });
+      
+      // Heatmap is off by default
+      vis.heatmapVisible = false;
+
+      let overlayMaps = {
+        "Heatmap": vis.heatmapLayer
+      };
+
+      L.control.layers(baseMaps, overlayMaps).addTo(vis.theMap);
+    } else {
+      L.control.layers(baseMaps).addTo(vis.theMap);
+    }
     //if you stopped here, you would just have a map
 
     // Use a fixed SVG overlay in map container coordinates so brushing and points align.
@@ -184,6 +215,15 @@ class LeafletMap {
       vis.setInteractionMode(nextMode);
     });
     vis.updateModeButton();
+
+    // Initialize heatmap toggle button
+    vis.heatmapToggleButton = d3.select("#heatmap-toggle");
+    if (!vis.heatmapToggleButton.empty()) {
+      vis.heatmapToggleButton.on("click", function() {
+        vis.toggleHeatmap();
+      });
+      vis.updateHeatmapButton();
+    }
   }
 
   initMapBrush() {
@@ -260,6 +300,43 @@ class LeafletMap {
       .classed("is-brush-mode", isBrush);
   }
 
+  updateHeatmapButton() {
+    let vis = this;
+    if (!vis.heatmapToggleButton || vis.heatmapToggleButton.empty()) {
+      return;
+    }
+
+    vis.heatmapToggleButton
+      .text(vis.heatmapVisible ? "Disable Heatmap" : "Enable Heatmap")
+      .attr("aria-pressed", vis.heatmapVisible ? "true" : "false")
+      .classed("is-heatmap-active", vis.heatmapVisible);
+  }
+
+  toggleHeatmap() {
+    let vis = this;
+    if (!vis.heatmapLayer || typeof L === 'undefined' || !L.heatLayer) {
+      return;
+    }
+
+    vis.heatmapVisible = !vis.heatmapVisible;
+
+    if (vis.heatmapVisible) {
+      // Show heatmap, hide dots
+      vis.heatmapLayer.addTo(vis.theMap);
+      if (vis.Dots) {
+        vis.Dots.style("display", "none");
+      }
+    } else {
+      // Hide heatmap, show dots
+      vis.theMap.removeLayer(vis.heatmapLayer);
+      if (vis.Dots) {
+        vis.Dots.style("display", null);
+      }
+    }
+
+    vis.updateHeatmapButton();
+  }
+
   setInteractionMode(mode) {
     let vis = this;
     const previousMode = vis.interactionMode;
@@ -303,7 +380,7 @@ class LeafletMap {
       if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
         return false;
       }
-      const point = vis.theMap.latLngToContainerPoint([lat, lon]);
+      const point = vis.theMap.latLngToLayerPoint([lat, lon]);
       return point.x >= x0 && point.x <= x1 && point.y >= y0 && point.y <= y1;
     });
     dispatcher.call("filterData", null, selectedData, "map_brush");
@@ -319,8 +396,8 @@ class LeafletMap {
    
    //redraw based on new zoom- need to recalculate on-screen position
     vis.Dots
-      .attr("cx", d => vis.theMap.latLngToContainerPoint([d.LATITUDE,d.LONGITUDE]).x)
-      .attr("cy", d => vis.theMap.latLngToContainerPoint([d.LATITUDE,d.LONGITUDE]).y);
+      .attr("cx", d => vis.theMap.latLngToLayerPoint([d.LATITUDE,d.LONGITUDE]).x)
+      .attr("cy", d => vis.theMap.latLngToLayerPoint([d.LATITUDE,d.LONGITUDE]).y);
 
     vis.applyDotStyles();
 
@@ -349,6 +426,10 @@ class LeafletMap {
 
     vis.Dots
       .attr("display", d => {
+        // Hide dots if heatmap is visible
+        if (vis.heatmapVisible) {
+          return "none";
+        }
         if (!vis.hasHighlightedRecords()) {
           return null;
         }
@@ -427,6 +508,44 @@ class LeafletMap {
     vis.updateVis();
   }
 
+  updateHeatmap() {
+    let vis = this;
+    if (!vis.heatmapLayer || typeof L === 'undefined' || !L.heatLayer) {
+      return;
+    }
+
+    // Track if heatmap was visible before update
+    vis.heatmapVisible = vis.theMap.hasLayer(vis.heatmapLayer);
+
+    // Update heatmap data from current data
+    vis.heatmapData = vis.data
+      .filter(d => d.LATITUDE && d.LONGITUDE)
+      .map(d => [parseFloat(d.LATITUDE), parseFloat(d.LONGITUDE), 1]);
+    
+    // Remove old heatmap layer
+    vis.theMap.removeLayer(vis.heatmapLayer);
+    
+    // Create new heatmap layer with updated data
+    vis.heatmapLayer = L.heatLayer(vis.heatmapData, {
+      radius: 25,
+      blur: 15,
+      maxZoom: 17,
+      max: 1.0,
+      gradient: {
+        0.0: '#0099ff',
+        0.25: '#00ff00',
+        0.5: '#ffff00',
+        0.75: '#ff7700',
+        1.0: '#ff0000'
+      }
+    });
+
+    // Add heatmap back if it was visible before the update
+    if (vis.heatmapVisible) {
+      vis.heatmapLayer.addTo(vis.theMap);
+    }
+  }
+
   setData(newData) {
     let vis = this;
     vis.data = Array.isArray(newData) ? newData : [];
@@ -442,6 +561,7 @@ class LeafletMap {
       vis.highlightedSet = new Set(vis.highlightedData);
     }
     vis.updateDots();
+    vis.updateHeatmap();
   }
 
   getColor(d) {

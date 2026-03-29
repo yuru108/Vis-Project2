@@ -18,6 +18,7 @@
     <section class="map-wrapper">
       <div id="my-map"></div>
       <div class="map-search-overlay">
+        <button id="heatmap-toggle" type="button" class="heatmap-toggle" aria-pressed="false">Enable Heatmap</button>
         <button id="map-mode-toggle" type="button" class="map-mode-toggle" aria-pressed="false">Switch To Brush</button>
         <input id="service-type-search" type="search" placeholder="Search service types" aria-label="Search service types" />
         <details id="filters-section" class="filters-panel" open>
@@ -75,9 +76,10 @@
   <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
   <script src="js/d3.v6.min.js"></script>
   <script src="js/leaflet.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.heat/0.2.0/leaflet-heat.js"></script>
+  <script src="js/leafletMap.js"></script>
   <script src="js/timeline.js"></script>
   <script src="js/main.js"></script>
-  <script src="js/leafletMap.js"></script>
   <script src="js/barchart.js"></script>
 </body>
 </html>
