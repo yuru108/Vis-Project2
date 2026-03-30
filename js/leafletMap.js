@@ -97,8 +97,8 @@ class LeafletMap {
 
     //Color Scales
 
-    vis.responseScale = d3.scaleSequential()
-      .interpolator(d3.interpolateOrRd);
+    vis.responseScale = d3.scaleLinear()
+      .range(["blue", "red"]);
     vis.neighborhoodScale = d3.scaleOrdinal(d3.schemeCategory10);//Neighborhood
     vis.priorityScale = d3.scaleOrdinal()//Priority
       .domain(["LOW","MEDIUM","HIGH"])
