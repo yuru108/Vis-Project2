@@ -1,68 +1,21 @@
-const width = 900;
-const height = 480;
-
-const svg = d3
-  .select("#viz")
-  .append("svg")
-  .attr("viewBox", `0 0 ${width} ${height}`)
-  .attr("role", "img")
-  .attr("aria-label", "D3 placeholder graphic");
-
-const data = d3.range(18).map(() => ({
-  x: Math.random() * width,
-  y: Math.random() * height,
-  r: 12 + Math.random() * 36,
-}));
-
 const dispatcher = d3.dispatch("filterData");
-
-svg
-  .append("rect")
-  .attr("width", width)
-  .attr("height", height)
-  .attr("fill", "url(#bg)");
-
-const defs = svg.append("defs");
-
-const gradient = defs
-  .append("linearGradient")
-  .attr("id", "bg")
-  .attr("x1", "0%")
-  .attr("y1", "0%")
-  .attr("x2", "100%")
-  .attr("y2", "100%");
-
-gradient.append("stop").attr("offset", "0%").attr("stop-color", "#fde2e4");
-gradient.append("stop").attr("offset", "100%").attr("stop-color", "#cfe1f5");
-
-svg
-  .selectAll("circle")
-  .data(data)
-  .join("circle")
-  .attr("cx", (d) => d.x)
-  .attr("cy", (d) => d.y)
-  .attr("r", (d) => d.r)
-  .attr("fill", "rgba(239, 71, 111, 0.55)")
-  .attr("stroke", "#ef476f")
-  .attr("stroke-width", 1.5);
-
-svg
-  .append("text")
-  .attr("x", width / 2)
-  .attr("y", height / 2)
-  .attr("text-anchor", "middle")
-  .attr("dominant-baseline", "middle")
-  .attr("fill", "#1b1b1b")
-  .attr("font-size", 28)
-  .attr("font-family", "'Noto Serif TC', 'Source Serif 4', serif")
-  .text("D3 已就緒");
-
 
 let leafletMap;
 let allRecords = [];
 let filteredRecords = [];
+let timelineBrushedRecords = null;
+let mapBrushedRecords = null;
 let serviceTypeOptions = [];
 let activeServiceTypes = new Set();
+let selectedBarState = null;
+let selectedBarRecords = [];
+
+const barChartAccessors = {
+  neighborhood: (d) => cleanText(d.NEIGHBORHOOD, "Unknown"),
+  method: (d) => cleanText(d.METHOD_RECEIVED, "Unknown"),
+  department: (d) => cleanText(d.DEPT_NAME, "Unknown"),
+  priority: (d) => cleanText(d.PRIORITY, "Unknown")
+};
 
 function cleanText(value, fallback = "") {
   const text = (value ?? "").toString().trim();
@@ -84,7 +37,7 @@ function buildServiceTypeOptions(data) {
     data,
     (rows) => ({
       count: rows.length,
-      label: cleanText(rows[0].SR_TYPE_DESC, rows[0].SR_TYPE),
+      label: cleanText(rows[0].SR_TYPE_DESC, rows[0].SR_TYPE)
     }),
     (d) => d.SR_TYPE
   );
@@ -93,7 +46,7 @@ function buildServiceTypeOptions(data) {
     .map(([key, values]) => ({
       key,
       label: values.label,
-      count: values.count,
+      count: values.count
     }))
     .sort((a, b) => d3.descending(a.count, b.count));
 }
@@ -104,27 +57,113 @@ function getPotholeDefaultKeys() {
     .map((d) => d.key);
 }
 
+function intersectByReference(source, selected) {
+  if (!Array.isArray(selected)) {
+    return source;
+  }
+  const selectedSet = new Set(selected);
+  return source.filter((d) => selectedSet.has(d));
+}
+
+function getSelectedBarChartState() {
+  if (!selectedBarState) {
+    return {};
+  }
+  return { [selectedBarState.chartId]: selectedBarState.label };
+}
+
+function syncSelectedBarRecords(baseRecords) {
+  if (!selectedBarState) {
+    selectedBarRecords = [];
+    return;
+  }
+
+  const accessor = barChartAccessors[selectedBarState.chartId];
+  if (!accessor) {
+    selectedBarState = null;
+    selectedBarRecords = [];
+    return;
+  }
+
+  selectedBarRecords = baseRecords.filter(
+    (d) => accessor(d) === selectedBarState.label
+  );
+
+  if (!selectedBarRecords.length) {
+    selectedBarState = null;
+  }
+}
+
+function getVisibleRecords() {
+  return selectedBarState ? selectedBarRecords : filteredRecords;
+}
+
 function updateFilterSummary() {
   const summary = d3.select("#filter-summary");
   if (summary.empty()) return;
+
+  const visibleRecords = getVisibleRecords();
+  const activeInteractions = [];
+  if (Array.isArray(timelineBrushedRecords)) activeInteractions.push("timeline brush");
+  if (Array.isArray(mapBrushedRecords)) activeInteractions.push("map brush");
+  const interactionSuffix = activeInteractions.length
+    ? ` (${activeInteractions.join(" + ")} active)`
+    : "";
+
   summary.text(
-    `${filteredRecords.length.toLocaleString()} visible requests from ${activeServiceTypes.size.toLocaleString()} selected service types`
+    `${visibleRecords.length.toLocaleString()} visible requests from ${activeServiceTypes.size.toLocaleString()} selected service types${interactionSuffix}`
   );
 }
 
-function applyFiltersAndRender() {
-  filteredRecords = allRecords.filter((d) => activeServiceTypes.has(d.SR_TYPE));
+function renderViews({ rerenderMap = true, rerenderTimeline = true } = {}) {
+  const baseRecords = filteredRecords;
+  const visibleRecords = getVisibleRecords();
 
-  if (leafletMap) {
-    leafletMap.setData(filteredRecords);
+  if (rerenderMap && leafletMap) {
+    leafletMap.setData(visibleRecords);
+    leafletMap.setHighlightedRecords(selectedBarState ? selectedBarRecords : []);
   }
-  renderAllBarCharts(filteredRecords);
 
-  if (typeof renderTimelineChart === "function") {
-    renderTimelineChart(filteredRecords);
+  renderAllBarCharts(baseRecords, handleBarSelection, getSelectedBarChartState());
+
+  if (rerenderTimeline && typeof renderTimelineChart === "function") {
+    renderTimelineChart(visibleRecords);
   }
 
   updateFilterSummary();
+}
+
+function recomputeFiltersAndRender(options = {}) {
+  const rerenderMap = options.rerenderMap !== false;
+  const rerenderTimeline = options.rerenderTimeline !== false;
+
+  const serviceTypeFilteredRecords = allRecords.filter((d) => activeServiceTypes.has(d.SR_TYPE));
+  const timelineFiltered = intersectByReference(serviceTypeFilteredRecords, timelineBrushedRecords);
+  const interactionFiltered = intersectByReference(timelineFiltered, mapBrushedRecords);
+
+  filteredRecords = interactionFiltered;
+  syncSelectedBarRecords(filteredRecords);
+
+  renderViews({ rerenderMap, rerenderTimeline });
+}
+
+function handleBarSelection(selection) {
+  const clickedSameBar =
+    selectedBarState &&
+    selectedBarState.chartId === selection.chartId &&
+    selectedBarState.label === selection.label;
+
+  if (clickedSameBar) {
+    selectedBarState = null;
+  } else {
+    selectedBarState = {
+      chartId: selection.chartId,
+      label: selection.label
+    };
+  }
+
+  syncSelectedBarRecords(filteredRecords);
+  renderViews({ rerenderMap: true, rerenderTimeline: true });
 }
 
 function applySearchVisibility(searchValue) {
@@ -168,8 +207,12 @@ function renderServiceTypeList() {
           } else {
             activeServiceTypes.delete(d.key);
           }
+
           updateTypeListVisualState();
-          applyFiltersAndRender();
+          // Service-type changes reset interaction brushes for a predictable filtered state.
+          timelineBrushedRecords = null;
+          mapBrushedRecords = null;
+          recomputeFiltersAndRender({ rerenderMap: true, rerenderTimeline: true });
         });
 
       label.append("span").attr("class", "service-type-name");
@@ -188,77 +231,87 @@ function renderServiceTypeList() {
   });
 }
 
-// **This Needs To Be Moved To A Separate File**
+dispatcher.on("filterData.main", function (filteredData, source) {
+  if (source === "map_brush") {
+    mapBrushedRecords = Array.isArray(filteredData) ? filteredData : null;
+  } else {
+    timelineBrushedRecords = Array.isArray(filteredData) ? filteredData : null;
+  }
 
-// Load 311 service requests, then normalize and filter records before mapping.
-// Reason: raw CSV fields can vary in naming/casing and may include invalid coordinates,
-// which can break or clutter the map. This step standardizes latitude/longitude and
-// the Leaflet layer renders accurate, focused points.
+  const shouldRerenderMap = source !== "map_brush" || mapBrushedRecords === null;
+  const shouldRerenderTimeline = source !== "timeline_brush";
 
-d3.csv('data/Cincinnati311.csv')
-  .then(data => {
-    console.log("number of items: " + data.length);
+  recomputeFiltersAndRender({
+    rerenderMap: shouldRerenderMap,
+    rerenderTimeline: shouldRerenderTimeline
+  });
+});
 
+// Load 311 service requests, normalize fields, and initialize all visual components.
+d3.csv("data/Cincinnati311.csv")
+  .then((data) => {
     const allowedFields = [
-      'SR_TYPE',
-      'SR_TYPE_DESC',
-      'PRIORITY',
-      'DEPT_CODE',
-      'DEPT_NAME',
-      'DEPT_DIVISION',
-      'ADDRESS',
-      'LOCATION',
-      'NEIGHBORHOOD',
-      'ZIPCODE',
-      'METHOD_RECEIVED',
-      'DATE_CREATED',
-      'TIME_RECEIVED',
-      'DATE_CLOSED',
-      'DATE_STATUS_CHANGE',
-      'TIME_STATUS_CHANGE',
-      'DATE_LAST_UPDATE',
-      'TIME_LAST_UPDATE',
-      'PLANNED_RESPONSE_TIME',
-      'PLANNED_END_DATE',
-      'PLANNED_COMPLETION_DAYS',
-      'DATE_DISPATCHED',
-      'TIME_DISPATCHED',
-      'DATE_REVISED_COMPLETION',
-      'DATE_REVISED_COMPLETION_REASON',
-      'COLLECTION_SPECIAL_DATE',
-      'COLLECTION_DAY',
-      'COLLECTION_ROUTE',
-      'COLLECTION_DIST',
-      'PROPTY_CITY_OWNED_YN',
-      'PROPTY_CITY_DEPT_OWNER',
-      'STREET_NO',
-      'STREET_DIRECTION',
-      'STREET_NAME',
-      'REQUEST_RETURN_CALL',
-      'NUM_POTHOLES',
-      'POLICE_DISTRICT',
-      'POLICE_RPT_AREA',
-      'LATITUDE',
-      'LONGITUDE',
-      'DATE_TIME_RECEIVED',
-      'COMMUNITY_COUNCIL_NEIGHBORHOOD'
+      "SR_TYPE",
+      "SR_TYPE_DESC",
+      "PRIORITY",
+      "DEPT_CODE",
+      "DEPT_NAME",
+      "DEPT_DIVISION",
+      "ADDRESS",
+      "LOCATION",
+      "NEIGHBORHOOD",
+      "ZIPCODE",
+      "METHOD_RECEIVED",
+      "DATE_CREATED",
+      "TIME_RECEIVED",
+      "DATE_CLOSED",
+      "DATE_STATUS_CHANGE",
+      "TIME_STATUS_CHANGE",
+      "DATE_LAST_UPDATE",
+      "TIME_LAST_UPDATE",
+      "PLANNED_RESPONSE_TIME",
+      "PLANNED_END_DATE",
+      "PLANNED_COMPLETION_DAYS",
+      "DATE_DISPATCHED",
+      "TIME_DISPATCHED",
+      "DATE_REVISED_COMPLETION",
+      "DATE_REVISED_COMPLETION_REASON",
+      "COLLECTION_SPECIAL_DATE",
+      "COLLECTION_DAY",
+      "COLLECTION_ROUTE",
+      "COLLECTION_DIST",
+      "PROPTY_CITY_OWNED_YN",
+      "PROPTY_CITY_DEPT_OWNER",
+      "STREET_NO",
+      "STREET_DIRECTION",
+      "STREET_NAME",
+      "REQUEST_RETURN_CALL",
+      "NUM_POTHOLES",
+      "POLICE_DISTRICT",
+      "POLICE_RPT_AREA",
+      "LATITUDE",
+      "LONGITUDE",
+      "DATE_TIME_RECEIVED",
+      "COMMUNITY_COUNCIL_NEIGHBORHOOD"
     ];
 
     allRecords = data
-      .map(d => {
+      .map((d, i) => {
         const row = {};
-        allowedFields.forEach(field => {
-          row[field] = d[field] ?? '';
+        allowedFields.forEach((field) => {
+          row[field] = d[field] ?? "";
         });
 
         row.LATITUDE = +(d.LATITUDE ?? d.latitude);
         row.LONGITUDE = +(d.LONGITUDE ?? d.longitude);
+        row.ID = d.ID ?? d.id ?? i;
+        row._index = i;
         row.SR_TYPE = normalizeTypeCode(d.SR_TYPE);
         row.SR_TYPE_DESC = cleanText(d.SR_TYPE_DESC, row.SR_TYPE);
 
         return row;
       })
-      .filter(d => Number.isFinite(d.LATITUDE) && Number.isFinite(d.LONGITUDE));
+      .filter((d) => Number.isFinite(d.LATITUDE) && Number.isFinite(d.LONGITUDE));
 
     serviceTypeOptions = buildServiceTypeOptions(allRecords);
 
@@ -273,8 +326,7 @@ d3.csv('data/Cincinnati311.csv')
     }
 
     renderServiceTypeList();
-    leafletMap = new LeafletMap({ parentElement: '#my-map' }, allRecords);
-    applyFiltersAndRender();
-
+    leafletMap = new LeafletMap({ parentElement: "#my-map" }, allRecords);
+    recomputeFiltersAndRender({ rerenderMap: true, rerenderTimeline: true });
   })
-  .catch(error => console.error(error));
+  .catch((error) => console.error(error));
