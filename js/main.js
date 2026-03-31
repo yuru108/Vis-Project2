@@ -309,6 +309,19 @@ d3.csv("data/Cincinnati311.csv")
         row.SR_TYPE = normalizeTypeCode(d.SR_TYPE);
         row.SR_TYPE_DESC = cleanText(d.SR_TYPE_DESC, row.SR_TYPE);
 
+        // Calculate response_days from DATE_CREATED and DATE_CLOSED
+        if (d.DATE_CREATED && d.DATE_CLOSED) {
+          const created = new Date(d.DATE_CREATED);
+          const closed = new Date(d.DATE_CLOSED);
+          if (!isNaN(created) && !isNaN(closed)) {
+            row.response_days = (closed - created) / (1000 * 60 * 60 * 24);
+          } else {
+            row.response_days = null;
+          }
+        } else {
+          row.response_days = null;
+        }
+
         return row;
       })
       .filter((d) => Number.isFinite(d.LATITUDE) && Number.isFinite(d.LONGITUDE));
