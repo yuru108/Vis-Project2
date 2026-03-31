@@ -1,18 +1,18 @@
 #timeline-section {
   width: 100%;
-  margin-top: 14px;
-  padding: 0;
-  border-radius: 0;
-  background: transparent;
-  box-shadow: none;
-  border: none;
+  margin-top: 0;
+  padding: 14px;
+  border-radius: 16px;
+  background: #ffffff;
+  border: 1px solid #d8e4ef;
+  box-shadow: 0 12px 32px rgba(16, 36, 60, 0.08);
 }
 
 #timeline-section h3 {
-  margin: 0 0 6px;
-  font-size: 1.35rem;
+  margin: 0 0 10px;
+  font-size: 1.05rem;
   line-height: 1.2;
-  color: #1f2a36;
+  color: #10243c;
 }
 
 #timeline-chart {
@@ -29,22 +29,22 @@
 
 .timeline-axis path,
 .timeline-axis line {
-  stroke: #9fadb9;
+  stroke: #9db0c3;
 }
 
 .timeline-axis text {
-  fill: #35495d;
+  fill: #395268;
   font-size: 12px;
 }
 
 .timeline-axis-title {
-  fill: #2c3f54;
+  fill: #2d4861;
   font-size: 13px;
   font-weight: 600;
 }
 
 .timeline-grid line {
-  stroke: #d8e0e8;
+  stroke: #dbe7f1;
   stroke-dasharray: 2 4;
 }
 
@@ -54,20 +54,20 @@
 
 .timeline-line {
   fill: none;
-  stroke: #3d7fb8;
+  stroke: #2f6ea5;
   stroke-width: 3;
   stroke-linecap: round;
   stroke-linejoin: round;
 }
 
 .timeline-dot {
-  fill: #3d7fb8;
+  fill: #2f6ea5;
   stroke: #ffffff;
   stroke-width: 2;
 }
 
 .timeline-hover-line {
-  stroke: #8ca0b2;
+  stroke: #8ea5ba;
   stroke-width: 1.5;
   stroke-dasharray: 3 4;
 }

@@ -88,14 +88,16 @@ function renderStackedBarChart({
   selectedLabel,
   onBarSelect
 }) {
-  const margin = { top: 10, right: 10, bottom: 95, left: 50 };
-  const width = 560;
-  const height = 300;
-  const innerWidth = width - margin.left - margin.right;
-  const innerHeight = height - margin.top - margin.bottom;
+  const margin = { top: 12, right: 14, bottom: 120, left: 56 };
 
   const container = d3.select(selector);
   container.selectAll("*").remove();
+
+  const containerWidth = container.node() ? container.node().clientWidth : 0;
+  const width = Math.max(620, Math.min(980, containerWidth || 620));
+  const height = Math.max(360, Math.round(width * 0.62));
+  const innerWidth = width - margin.left - margin.right;
+  const innerHeight = height - margin.top - margin.bottom;
 
   const svg = container
     .append("svg")
@@ -119,7 +121,7 @@ function renderStackedBarChart({
     .scaleBand()
     .domain(stackRows.map((d) => d.label))
     .range([0, innerWidth])
-    .padding(0.15);
+    .padding(0.2);
 
   const yScale = d3
     .scaleLinear()
