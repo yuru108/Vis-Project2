@@ -30,13 +30,13 @@ class LeafletMap {
     vis.topoUrl ='https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png';
     vis.topoAttr = 'Map data: &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, <a href="http://viewfinderpanoramas.org">SRTM</a> | Map style: &copy; <a href="https://opentopomap.org">OpenTopoMap</a> (<a href="https://creativecommons.org/licenses/by-sa/3.0/">CC-BY-SA</a>)'
 
-    //Thunderforest Outdoors- requires key... so meh... 
-    vis.thOutUrl = 'https://{s}.tile.thunderforest.com/outdoors/{z}/{x}/{y}.png?apikey={apikey}';
-    vis.thOutAttr = '&copy; <a href="http://www.thunderforest.com/">Thunderforest</a>, &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
+    //Carto Positron (no key required)
+    vis.thOutUrl = 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png';
+    vis.thOutAttr = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>';
 
-    //Stamen Terrain
-    vis.stUrl = 'https://stamen-tiles-{s}.a.ssl.fastly.net/terrain/{z}/{x}/{y}{r}.{ext}';
-    vis.stAttr = 'Map tiles by <a href="http://stamen.com">Stamen Design</a>, <a href="http://creativecommons.org/licenses/by/3.0">CC BY 3.0</a> &mdash; Map data &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
+    //OpenStreetMap Humanitarian (no key required)
+    vis.stUrl = 'https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png';
+    vis.stAttr = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, Tiles style by <a href="https://www.hotosm.org/">Humanitarian OpenStreetMap Team</a>';
 
     //this is the base map layer, where we are showing the map background
     //**** TO DO - try different backgrounds 
@@ -75,8 +75,8 @@ class LeafletMap {
     let baseMaps = {
       "Esri Map": vis.base_layer,
       "Topo Map": vis.topo_layer,
-      "Thunderforest": vis.thOut_layer,
-      "Stamen Terrain": vis.st_layer
+      "Carto Light": vis.thOut_layer,
+      "OSM Humanitarian": vis.st_layer
     };
 
     // Initialize heatmap layer with data if library is loaded
@@ -102,13 +102,15 @@ class LeafletMap {
       // Heatmap is off by default
       vis.heatmapVisible = false;
 
-      let overlayMaps = {
-        "Heatmap": vis.heatmapLayer
-      };
-
-      L.control.layers(baseMaps, overlayMaps).addTo(vis.theMap);
+      L.control.layers(baseMaps, null, { position: 'bottomleft' }).addTo(vis.theMap);
     } else {
-      L.control.layers(baseMaps).addTo(vis.theMap);
+      L.control.layers(baseMaps, null, { position: 'bottomleft' }).addTo(vis.theMap);
+    }
+
+    const mapTypeToggle = document.querySelector('.leaflet-control-layers-toggle');
+    if (mapTypeToggle) {
+      mapTypeToggle.setAttribute('title', 'Map types');
+      mapTypeToggle.setAttribute('aria-label', 'Choose map type');
     }
     //if you stopped here, you would just have a map
 

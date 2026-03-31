@@ -4,18 +4,37 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Vis-Project2</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Fraunces:opsz,wght@9..144,600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/leaflet.css">
   <link rel="stylesheet" href="css/style.css" />
   <link rel="stylesheet" href="css/timeline.css" />
 </head>
 <body>
-  <header class="header">
-    <h1>Vis-Project2</h1>
-    <h2>311 Pothole Service Requests in Cincinnati</h2>
+  <header class="header dashboard-header">
+    <div class="header-kicker">Cincinnati's Service Requests</div>
+    <h1>Cincinnati 311 Analytics</h1>
+    <h2>Service Requests Across The Greater Cincinnati Area</h2>
   </header>
 
-  <main>
-    <section class="map-wrapper">
+  <main class="dashboard-shell">
+    <section class="panel map-panel">
+      <div class="panel-title-row">
+        <h3>Interactive Map</h3>
+      </div>
+
+      <section class="controls-panel">
+        <label for="color-select">Color by</label>
+        <select id="color-select">
+          <option value="response">Response Time</option>
+          <option value="neighborhood">Neighborhood</option>
+          <option value="priority">Priority</option>
+          <option value="department">Department</option>
+        </select>
+      </section>
+
+      <section class="map-wrapper">
       <div id="my-map"></div>
       <div class="map-search-overlay">
         <button id="heatmap-toggle" type="button" class="heatmap-toggle" aria-pressed="false">Enable Heatmap</button>
@@ -27,25 +46,19 @@
           <p id="filter-summary" class="filter-summary"></p>
         </details>
       </div>
+      </section>
     </section>
+
     <div id="tooltip" class="tooltip"></div>
-    <h3 id="missing-data"></h3>
+    <p id="missing-data" class="missing-data-note"></p>
 
-    <label for="color-select">Color by:</label>
-    <select id="color-select">
-      <option value="response">Response Time</option>
-      <option value="neighborhood">Neighborhood</option>
-      <option value="priority">Priority</option>
-      <option value="department">Department</option>
-    </select>
-
-    <section id="timeline-section">
+    <section id="timeline-section" class="panel">
       <h3>Timeline</h3>
       <button id="play-timeline">Play</button>
       <div id="timeline-chart"></div>
     </section>
 
-    <section id="bar-charts" class="bar-charts-section">
+    <section id="bar-charts" class="bar-charts-section panel">
       <h3>Request Counts</h3>
       <div id="service-type-legend" class="service-type-legend"></div>
       <div class="charts-grid">
